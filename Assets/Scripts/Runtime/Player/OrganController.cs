@@ -2,15 +2,14 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 器官控制器 —— 玩家输入路由与多器官/可推动物体协调中心。
-/// WASD 控制活动脚的移动，LCtrl 在多个脚之间切换，Tab 切换眼球摄像机，空格触发手的抓取。
+/// 器官控制器 —— WASD 控制脚，LCtrl 切脚，Tab 切眼球摄像机，E 键多手抓取/释放。
 /// </summary>
 public class OrganController : MonoBehaviour
 {
     [Header("输入")]
     [SerializeField] private KeyCode footSwitchKey = KeyCode.LeftControl;
     [SerializeField] private KeyCode eyeSwitchKey = KeyCode.Tab;
-    [SerializeField] private KeyCode specialKey = KeyCode.Space;
+    [SerializeField] private KeyCode grabKey = KeyCode.E;
 
     [Header("关卡目标")]
     [SerializeField] private Vector3Int goalGridPos;
@@ -20,25 +19,36 @@ public class OrganController : MonoBehaviour
 
     // 运行时状态
     private List<OrganUnit> organs = new List<OrganUnit>();
-    private List<PushableObject> allPushables = new List<PushableObject>();
     private OrganUnit heartUnit;
-    private OrganUnit handUnit;
+    private List<OrganUnit> handOrgans = new List<OrganUnit>();
     private List<OrganUnit> footOrgans = new List<OrganUnit>();
     private List<OrganUnit> eyeOrgans = new List<OrganUnit>();
     private int activeFootIndex;
     private int activeEyeIndex;
+    private bool handsGrabbing;
+
+    // O(1) 位置索引，替代原 List<PushableObject> 的全表扫描
+    private GridPositionIndex posIndex = new GridPositionIndex();
 
     public OrganUnit HeartUnit => heartUnit;
     public OrganUnit ActiveFoot => (footOrgans.Count > 0) ? footOrgans[activeFootIndex] : null;
 
-    /// <summary>便捷访问 MapGrid 单例</summary>
-    private MapGrid Grid => GameBootstrap.Instance?.MapGrid;
+    /// <summary>MapGrid 单例（公开给 PushContext 等使用）</summary>
+    public MapGrid MapGrid => GameBootstrap.Instance?.MapGrid;
+    private MapGrid Grid => MapGrid;
 
     // ─────────── 初始化 ───────────
 
     private void Start()
     {
         CollectAll();
+    }
+
+    private void OnDestroy()
+    {
+        // 取消所有位置变更事件订阅
+        foreach (var pushable in posIndex.AllObjects)
+            pushable.OnGridPositionChanged -= OnPushableMoved;
     }
 
     /// <summary>
@@ -49,8 +59,7 @@ public class OrganController : MonoBehaviour
         organs.Clear();
         GetComponentsInChildren(organs);
 
-        allPushables.Clear();
-        GetComponentsInChildren(allPushables);
+        posIndex.Clear();
 
         if (organs.Count == 0)
         {
@@ -58,40 +67,57 @@ public class OrganController : MonoBehaviour
             return;
         }
 
-        // 找到心、手
+        // 找到心
         heartUnit = organs.Find(o => o.OrganType == OrganType.Heart);
-        handUnit  = organs.Find(o => o.OrganType == OrganType.Hand);
 
-        // 收集所有脚
+        // 收集手、脚、眼
+        handOrgans.Clear();
         footOrgans.Clear();
-        foreach (var organ in organs)
-        {
-            if (organ.OrganType == OrganType.Foot)
-                footOrgans.Add(organ);
-        }
-
-        // 收集所有眼球
         eyeOrgans.Clear();
         foreach (var organ in organs)
         {
-            if (organ.OrganType == OrganType.Eye && organ.HasCamera)
-                eyeOrgans.Add(organ);
+            switch (organ.OrganType)
+            {
+                case OrganType.Hand: handOrgans.Add(organ); break;
+                case OrganType.Foot: footOrgans.Add(organ); break;
+                case OrganType.Eye: if (organ.HasCamera) eyeOrgans.Add(organ); break;
+            }
+
+            // 订阅位置变更事件，保持索引同步
+            organ.OnGridPositionChanged += OnPushableMoved;
         }
 
-        if (heartUnit    == null) Debug.LogWarning("[OrganController] 未找到 Heart。");
-        if (footOrgans.Count == 0) Debug.LogWarning("[OrganController] 未找到 Foot。");
-        if (handUnit     == null) Debug.LogWarning("[OrganController] 未找到 Hand。");
+        if (heartUnit      == null) Debug.LogWarning("[OrganController] 未找到 Heart。");
+        if (footOrgans.Count  == 0)   Debug.LogWarning("[OrganController] 未找到 Foot。");
+        if (handOrgans.Count  == 0)   Debug.LogWarning("[OrganController] 未找到 Hand。");
 
         // 注入心引用 + 对齐网格
         foreach (var organ in organs)
             organ.HeartUnit = heartUnit;
-        foreach (var pushable in allPushables)
-            pushable.SnapToGrid();
+
+        // 收集所有 ScenePushable 子对象并注册到索引
+        var scenePushables = GetComponentsInChildren<ScenePushable>();
+        foreach (var sp in scenePushables)
+        {
+            sp.SnapToGrid();
+            sp.OnGridPositionChanged += OnPushableMoved;
+        }
+
+        // 批量注册到位置索引
+        posIndex.RegisterAll(organs);
+        foreach (var sp in scenePushables)
+            posIndex.Register(sp);
 
         // 初始化摄像机
         InitCameras();
 
-        Log($"[OrganController] 初始化: {organs.Count} 器官({footOrgans.Count} 脚/{eyeOrgans.Count} 眼), {allPushables.Count - organs.Count} 场景物体");
+        Log($"[OrganController] 初始化: {organs.Count} 器官({footOrgans.Count} 脚/{eyeOrgans.Count} 眼), {scenePushables.Length} 场景物体");
+    }
+
+    /// <summary>位置变更回调，保持索引表同步。</summary>
+    private void OnPushableMoved(PushableObject obj, Vector3Int oldPos, Vector3Int newPos)
+    {
+        posIndex.OnMoved(obj, oldPos, newPos);
     }
 
     /// <summary>
@@ -124,8 +150,8 @@ public class OrganController : MonoBehaviour
 
         HandleFootSwitch();
         HandleEyeCameraSwitch();
+        HandleGrabInput();
         HandleMoveInput();
-        HandleSpecialInput();
         CheckVictory();
     }
 
@@ -168,25 +194,76 @@ public class OrganController : MonoBehaviour
         ExecuteOrganMove(ActiveFoot, dir);
     }
 
-    /// <summary>空格键触发手的抓取/释放。</summary>
-    private void HandleSpecialInput()
+    /// <summary>E 键切换所有手的抓取/释放，同时触发相邻 Interact 触发器。</summary>
+    private void HandleGrabInput()
     {
-        if (!Input.GetKeyDown(specialKey)) return;
-        if (handUnit == null) return;
+        if (!Input.GetKeyDown(grabKey)) return;
+        if (handOrgans.Count == 0) return;
 
-        HandleHandGrab(handUnit);
+        if (handsGrabbing)
+        {
+            // 释放
+            foreach (var hand in handOrgans)
+                hand.ReleaseAllGrabbed();
+            handsGrabbing = false;
+            Log("[OrganController] 所有 Hand 已释放。");
+        }
+        else
+        {
+            // 抓取：每只手扫描四方向
+            handsGrabbing = true;
+            int totalGrabbed = 0;
+
+            foreach (var hand in handOrgans)
+            {
+                FireInteractTriggers(hand);
+
+                foreach (var d in Direction4s)
+                {
+                    PushableObject obj = GetPushableAt(hand.GridPos + d);
+                    if (obj != null && obj != hand)
+                    {
+                        hand.AddGrabbed(obj);
+                        totalGrabbed++;
+                    }
+                }
+            }
+
+            Log($"[OrganController] 所有 Hand 共抓取 {totalGrabbed} 个物体。");
+        }
+    }
+
+    private static readonly Vector3Int[] Direction4s = {
+        Vector3Int.up, Vector3Int.down,
+        Vector3Int.left, Vector3Int.right
+    };
+
+    private void FireInteractTriggers(OrganUnit hand)
+    {
+        var triggers = GameBootstrap.Instance?.AllTriggers;
+        if (triggers == null) return;
+
+        foreach (var d in Direction4s)
+        {
+            Vector3Int checkPos = hand.GridPos + d;
+            foreach (var trigger in triggers)
+            {
+                if (trigger != null && trigger.GridPos == checkPos)
+                    trigger.Fire();
+            }
+        }
     }
 
     // ─────────── 移动执行 ───────────
 
     /// <summary>
-    /// 执行器官移动，包含推进链（可推器官和场景物体）和抓取跟随。
+    /// 执行器官移动，统一使用 PushContext 处理推进链和抓取跟随。
     /// </summary>
     private void ExecuteOrganMove(OrganUnit organ, Vector3Int dir)
     {
         Vector3Int targetPos = organ.GridPos + dir;
 
-        // 1. 自身能力检查
+        // 1. 自身能力预检查
         if (!organ.CanMoveTo(targetPos))
         {
             Grid?.NotifyBlocked(targetPos);
@@ -194,106 +271,44 @@ public class OrganController : MonoBehaviour
             return;
         }
 
-        // 记录心跳动前的位置（必须在推进链之前，因为链中可能推动心）
+        // 记录心跳动前的位置
         Vector3Int heartOldPos = heartUnit != null ? heartUnit.GridPos : Vector3Int.zero;
 
-        // 2. 检查目标格是否被其他可推动物体占据
+        // 2. 使用 PushContext 统一处理推进链（仅脚可推）
         PushableObject occupier = GetPushableAt(targetPos, exclude: organ);
         if (occupier != null)
         {
             if (organ.OrganType != OrganType.Foot)
             {
-                Log($"[OrganController] {targetPos} 被 {occupier.name} 占据，无法移动。");
+                Log($"[OrganController] {targetPos} 被 {occupier.name} 占据，{organ.name} 无法移动。");
                 return;
             }
 
-            if (!TryPushChain(occupier, dir))
+            var ctx = new PushContext(this, posIndex);
+            if (!ctx.CanPush(occupier.GridPos, dir))
             {
                 Log($"[OrganController] 推进链受阻。");
                 return;
             }
+
+            ctx.Execute(dir);
         }
 
-        // 3. 执行移动
+        // 3. 执行自身移动
         Vector3Int oldPos = organ.GridPos;
-        organ.MoveTo(targetPos);
+        organ.TryMoveSelf(dir);
 
-        // 4. 抓取跟随
-        if (organ.OrganType == OrganType.Hand && organ.IsGrabbing)
-        {
-            MoveGrabbedWithHand(organ, dir, oldPos);
-        }
-
-        // 5. 心移动后拉动超距器官
+        // 4. 心移动后拉动超距器官
         if (heartUnit != null && heartUnit.GridPos != heartOldPos)
-        {
             PullOutOfRangeOrgans();
-        }
 
         Log($"[OrganController] {organ.name} {oldPos} → {targetPos}");
-    }
-
-    // ─────────── 推进链 ───────────
-
-    /// <summary>
-    /// 尝试沿方向推进整条链（可包含器官和场景物体）。
-    /// </summary>
-    /// <param name="bypassHeart">为 true 时跳过心距离检查（蓄力踢等强推力场景）。</param>
-    private bool TryPushChain(PushableObject firstPushed, Vector3Int dir, bool bypassHeart = false)
-    {
-        List<PushableObject> chain = new List<PushableObject>();
-        Vector3Int checkPos = firstPushed.GridPos;
-
-        while (true)
-        {
-            PushableObject obj = GetPushableAt(checkPos);
-            if (obj == null) break;
-            if (chain.Contains(obj)) break;
-
-            chain.Add(obj);
-            checkPos += dir;
-
-            if (chain.Count > 100) return false;
-        }
-
-        if (!Grid.IsWalkable(checkPos))
-        {
-            Grid?.NotifyBlocked(checkPos);
-            Log($"[OrganController] 推进链终点 {checkPos} 为墙壁。");
-            return false;
-        }
-
-        // 心距离检查（蓄力踢时跳过）
-        if (!bypassHeart)
-        {
-            foreach (var pushed in chain)
-            {
-                Vector3Int newPos = pushed.GridPos + dir;
-                if (pushed is OrganUnit organ && !organ.IsWithinHeartRange(newPos))
-                {
-                    Log($"[OrganController] {organ.name} 被推到 {newPos} 将超出心的范围。");
-                    return false;
-                }
-            }
-        }
-
-        for (int i = chain.Count - 1; i >= 0; i--)
-        {
-            chain[i].ApplyPush(dir);
-            Log($"[OrganController]  {chain[i].name} 被推动 → {chain[i].GridPos}");
-        }
-
-        return true;
     }
 
     /// <summary>
     /// 蓄力踢：沿指定方向推动所有阻挡物体若干格，忽略心距离约束。
     /// 踢完后自动将超距器官拉回。
     /// </summary>
-    /// <param name="foot">发起踢的脚</param>
-    /// <param name="kickDir">踢击方向</param>
-    /// <param name="pushDistance">推动格数（由蓄力程度决定）</param>
-    /// <returns>是否踢到了任何物体</returns>
     public bool ForceKick(OrganUnit foot, Vector3Int kickDir, int pushDistance)
     {
         if (pushDistance <= 0 || Grid == null) return false;
@@ -302,11 +317,10 @@ public class OrganController : MonoBehaviour
 
         for (int step = 0; step < pushDistance; step++)
         {
-            // 每次向前扫描找到最近物体（上一次推动已使其位移）
+            // 从脚前方开始扫描，找到第一个阻挡物
             Vector3Int scanPos = foot.GridPos + kickDir;
             PushableObject firstInLine = null;
 
-            // 沿踢方向扫描，跳过已空出的格子
             while (Grid.IsWalkable(scanPos))
             {
                 firstInLine = GetPushableAt(scanPos);
@@ -314,11 +328,14 @@ public class OrganController : MonoBehaviour
                 scanPos += kickDir;
             }
 
-            if (firstInLine == null) break;  // 扫描到底都没找到物体
+            if (firstInLine == null) break;
 
-            if (!TryPushChain(firstInLine, kickDir, bypassHeart: true))
-                break;  // 遇墙卡住
+            // 使用 PushContext 统一推动（忽略心距离）
+            var ctx = new PushContext(this, posIndex);
+            if (!ctx.CanPush(firstInLine.GridPos, kickDir, bypassHeart: true))
+                break;
 
+            ctx.Execute(kickDir);
             hitAnything = true;
         }
 
@@ -347,9 +364,18 @@ public class OrganController : MonoBehaviour
         {
             anyPulled = false;
 
-            foreach (var organ in organs)
+            // 按距离心从远到近排序，远处器官先拉，避免被近处堵住
+            var sortedOrgans = new List<OrganUnit>(organs);
+            sortedOrgans.Remove(heartUnit);
+            sortedOrgans.Sort((a, b) =>
             {
-                if (organ == heartUnit) continue;
+                int distA = Mathf.Abs(a.GridPos.x - heartUnit.GridPos.x) + Mathf.Abs(a.GridPos.y - heartUnit.GridPos.y);
+                int distB = Mathf.Abs(b.GridPos.x - heartUnit.GridPos.x) + Mathf.Abs(b.GridPos.y - heartUnit.GridPos.y);
+                return distB.CompareTo(distA); // 降序：远的在前
+            });
+
+            foreach (var organ in sortedOrgans)
+            {
                 if (!organ.IsOutOfHeartRange()) continue;
 
                 Vector3Int pullDir = organ.GetPullDirectionTowardHeart();
@@ -368,96 +394,24 @@ public class OrganController : MonoBehaviour
             safety++;
         }
         while (anyPulled && safety < 50);
-    }
 
-    // ─────────── 手抓取 ───────────
-
-    /// <summary>
-    /// 处理手的抓取/释放。扫描相邻四方向，抓取任意 PushableObject。
-    /// </summary>
-    private void HandleHandGrab(OrganUnit hand)
-    {
-        if (hand.IsGrabbing)
+        // 蓄力踢后兜底：仍有超距器官时打印警告
+        if (safety > 1)
         {
-            hand.ReleaseGrabbed();
-            Log("[OrganController] Hand 已释放。");
-            return;
-        }
-
-        Vector3Int[] dirs = {
-            Vector3Int.up, Vector3Int.down,
-            Vector3Int.left, Vector3Int.right
-        };
-
-        foreach (var d in dirs)
-        {
-            PushableObject target = GetPushableAt(hand.GridPos + d);
-            if (target != null && target != hand)
+            foreach (var organ in organs)
             {
-                hand.GrabTarget(target);
-                Log($"[OrganController] Hand 抓取了 {target.name}");
-                return;
+                if (organ != heartUnit && organ.IsOutOfHeartRange())
+                    Log($"[OrganController]  ⚠ {organ.name} 仍超距 {organ.GridPos}，被障碍物阻挡无法回拉");
             }
         }
-
-        Log("[OrganController] Hand 相邻格无物体可抓取。");
-    }
-
-    /// <summary>
-    /// 手移动时，被抓物体跟随移动。若被抓的是 OrganUnit，还需检查心距离。
-    /// </summary>
-    private void MoveGrabbedWithHand(OrganUnit hand, Vector3Int dir, Vector3Int handOldPos)
-    {
-        PushableObject grabbed = hand.GrabbedTarget;
-        if (grabbed == null) return;
-
-        Vector3Int offset = grabbed.GridPos - handOldPos;
-        Vector3Int grabbedNewPos = hand.GridPos + offset;
-
-        // 目标格检查
-        if (!Grid.IsWalkable(grabbedNewPos))
-        {
-            hand.ReleaseGrabbed();
-            Log($"[OrganController] 抓取目标路径为墙壁，自动释放。");
-            return;
-        }
-
-        PushableObject occupier = GetPushableAt(grabbedNewPos, exclude: grabbed);
-        if (occupier != null && occupier != hand)
-        {
-            hand.ReleaseGrabbed();
-            Log($"[OrganController] 抓取目标路径被 {occupier.name} 占据，自动释放。");
-            return;
-        }
-
-        // 如果是器官，检查心距离
-        if (grabbed is OrganUnit grabbedOrgan)
-        {
-            if (!grabbedOrgan.IsWithinHeartRange(grabbedNewPos))
-            {
-                hand.ReleaseGrabbed();
-                Log($"[OrganController] 抓取移动将超出心的范围，自动释放。");
-                return;
-            }
-        }
-
-        grabbed.MoveTo(grabbedNewPos);
-        Log($"[OrganController]  抓取的 {grabbed.name} 跟随移动 → {grabbedNewPos}");
     }
 
     // ─────────── 查询 ───────────
 
-    /// <summary>
-    /// 获取指定格子上任意可推动物体。可排除自身。
-    /// </summary>
+    /// <summary>O(1) 获取指定格子上任意可推动物体。可排除自身。</summary>
     public PushableObject GetPushableAt(Vector3Int cellPos, PushableObject exclude = null)
     {
-        foreach (var p in allPushables)
-        {
-            if (p == exclude) continue;
-            if (p.GridPos == cellPos) return p;
-        }
-        return null;
+        return posIndex.GetAt(cellPos, exclude);
     }
 
     /// <summary>

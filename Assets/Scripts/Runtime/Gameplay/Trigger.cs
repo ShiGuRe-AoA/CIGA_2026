@@ -60,7 +60,10 @@ public class Trigger : MonoBehaviour
     {
         SnapPosition();
 
-        // Impact 模式：将自身标记为地图障碍物，并监听阻挡事件
+        // 向 GameBootstrap 注册
+        if (GameBootstrap.Instance != null)
+            GameBootstrap.Instance.AllTriggers.Add(this);
+
         if (mode == TriggerMode.Impact && Grid != null)
         {
             Grid.RegisterBlocker(gridPos);
@@ -76,6 +79,9 @@ public class Trigger : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (GameBootstrap.Instance != null)
+            GameBootstrap.Instance.AllTriggers.Remove(this);
+
         if (Grid != null)
         {
             Grid.UnregisterBlocker(gridPos);

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -14,6 +15,9 @@ public class GameBootstrap : MonoBehaviour
 
     /// <summary>器官控制器</summary>
     public OrganController OrganController { get; private set; }
+
+    /// <summary>所有 Trigger 的注册表（由 Trigger 自主注册）</summary>
+    public readonly List<Trigger> AllTriggers = new List<Trigger>();
 
     private void Awake()
     {

@@ -74,7 +74,7 @@ LineRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: -1
   m_Positions:
   - {x: 0, y: 0, z: 0}
   - {x: 0, y: 0, z: 1}
@@ -709,13 +709,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 243ca1688783b3c4e93df5a02fffa5d2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveDuration: 0.2
+  moveDuration: 0.5
   moveEase: 6
-  mapGrid: {fileID: 0}
   organType: 1
   pointerPivot: {fileID: 6111310624565774737}
   chargeBarImage: {fileID: 4496390737232137093}
-  maxHeartDistance: 8
+  maxHeartDistance: 4
   spriteConfig: {fileID: 11400000, guid: dc11efa2e2d771d4bb138e9265feca5a, type: 2}
 --- !u!114 &1952592627785566629
 MonoBehaviour:
@@ -733,7 +732,6 @@ MonoBehaviour:
   fullChargeTime: 2
   minKickDistance: 1
   maxKickDistance: 10
-  organController: {fileID: 0}
 --- !u!1 &8591948305575443316
 GameObject:
   m_ObjectHideFlags: 0

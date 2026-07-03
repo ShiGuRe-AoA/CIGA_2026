@@ -1,5 +1,6 @@
 using UnityEngine;
 using Cinemachine;
+using System.Collections.Generic;
 
 /// <summary>
 /// 四方向枚举，用于表示器官和指针的朝向。
@@ -34,11 +35,8 @@ public class OrganUnit : PushableObject
     [SerializeField] private OrganSpriteConfig spriteConfig;
 
     // ─────────── 运行时状态 ───────────
-    private PushableObject grabbedTarget;
+    private List<PushableObject> grabbedTargets = new List<PushableObject>();
     private SpriteRenderer spriteRenderer;
-    //private LineRenderer lineRenderer;
-
-    // 代替lineRenderer
     private OrganLink heartLinkRenderer;
     private OrganUnit heartUnit;
 
@@ -60,11 +58,11 @@ public class OrganUnit : PushableObject
         }
     }
 
-    /// <summary>当前被抓取的目标（仅 Hand），可以是任何可推动物体</summary>
-    public PushableObject GrabbedTarget => grabbedTarget;
+    /// <summary>当前被抓取的目标列表（仅 Hand）</summary>
+    public List<PushableObject> GrabbedTargets => grabbedTargets;
 
-    /// <summary>是否正在抓取</summary>
-    public bool IsGrabbing => grabbedTarget != null;
+    /// <summary>是否正在抓取任何物体</summary>
+    public bool IsGrabbing => grabbedTargets.Count > 0;
 
     /// <summary>当前朝向（由最后一次移动方向决定）</summary>
     public Direction4 FacingDirection => facingDirection;
@@ -235,6 +233,40 @@ public class OrganUnit : PushableObject
         return base.CanBePushed(pushDir);
     }
 
+    // ─────────── 移动 ───────────
+
+    /// <summary>
+    /// 尝试向指定方向移动一格。包含网格走步 + 心距离等所有合法性检查。
+    /// OrganController 或其他调用方均可直接调用。
+    /// </summary>
+    /// <returns>是否成功移动</returns>
+    public bool TryMoveSelf(Vector3Int dir)
+    {
+        Vector3Int target = gridPos + dir;
+        if (!CanMoveTo(target)) return false;
+        MoveTo(target);
+        return true;
+    }
+
+    /// <summary>
+    /// 检查指定单元格是否有其他可推动物体占据（排除自身）。
+    /// </summary>
+    public bool IsCellOccupied(Vector3Int cellPos)
+    {
+        var ctrl = GameBootstrap.Instance?.OrganController;
+        return ctrl != null && ctrl.GetPushableAt(cellPos, exclude: this) != null;
+    }
+
+    /// <summary>
+    /// 检测当前位置偏移 offset 后是否仍在心的约束范围内。
+    /// </summary>
+    /// <param name="offset">当前格子坐标的偏移量</param>
+    /// <returns>在范围内返回 true</returns>
+    public bool CheckInHeartRange(Vector3Int offset)
+    {
+        return IsWithinHeartRange(gridPos + offset);
+    }
+
     // ─────────── 心距离相关 ───────────
 
     /// <summary>
@@ -285,32 +317,26 @@ public class OrganUnit : PushableObject
     {
         switch (organType)
         {
-            case OrganType.Hand:
-                if (grabbedTarget != null)
-                    ReleaseGrabbed();
-                else
-                    Debug.Log("[OrganUnit] Hand：请先移动到相邻格再抓取。");
-                break;
             case OrganType.Eye:
                 Debug.Log("[OrganUnit] Eye 特殊动作（暂未实现）。");
                 break;
         }
     }
 
-    /// <summary>手抓取目标（可以是任何 PushableObject）。</summary>
-    public void GrabTarget(PushableObject target)
+    /// <summary>批量添加抓取目标。</summary>
+    public void AddGrabbed(PushableObject target)
     {
         if (organType != OrganType.Hand) return;
-        grabbedTarget = target;
-        Debug.Log($"[OrganUnit] Hand 抓取了 {target.name}");
+        if (!grabbedTargets.Contains(target))
+            grabbedTargets.Add(target);
     }
 
-    /// <summary>手释放当前抓取目标。</summary>
-    public void ReleaseGrabbed()
+    /// <summary>释放所有抓取目标。</summary>
+    public void ReleaseAllGrabbed()
     {
-        if (grabbedTarget == null) return;
-        Debug.Log($"[OrganUnit] Hand 释放了 {grabbedTarget.name}");
-        grabbedTarget = null;
+        if (grabbedTargets.Count == 0) return;
+        Debug.Log($"[OrganUnit] Hand 释放了 {grabbedTargets.Count} 个物体");
+        grabbedTargets.Clear();
     }
 
     // ─────────── 连线 ───────────
@@ -361,11 +387,15 @@ public class OrganUnit : PushableObject
         Gizmos.color = typeColor;
         Gizmos.DrawWireSphere(transform.position, 0.35f);
 
-        // 手抓取连线（无论目标是器官还是场景物体）
-        if (organType == OrganType.Hand && grabbedTarget != null)
+        // 手抓取连线
+        if (organType == OrganType.Hand)
         {
             Gizmos.color = Color.magenta;
-            Gizmos.DrawLine(transform.position, grabbedTarget.transform.position);
+            foreach (var g in grabbedTargets)
+            {
+                if (g != null)
+                    Gizmos.DrawLine(transform.position, g.transform.position);
+            }
         }
     }
 

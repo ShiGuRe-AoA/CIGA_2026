@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using DG.Tweening;
 
@@ -28,6 +29,12 @@ public class PushableObject : MonoBehaviour
     /// <summary>快捷访问 MapGrid（若未初始化则返回 null）</summary>
     protected MapGrid SafeGrid => GameBootstrap.Instance?.MapGrid;
 
+    /// <summary>
+    /// 格子位置变化事件。参数: (物体, 旧位置, 新位置)。
+    /// GridPositionIndex 等外部组件通过此事件保持同步。
+    /// </summary>
+    public event Action<PushableObject, Vector3Int, Vector3Int> OnGridPositionChanged;
+
     protected virtual void Awake() { }
 
     protected virtual void Start()
@@ -51,10 +58,15 @@ public class PushableObject : MonoBehaviour
 
     /// <summary>
     /// 更新格子坐标，并用 DOTween 平滑移动到新格子中心。
+    /// 会触发 OnGridPositionChanged 事件。
     /// </summary>
     public virtual void MoveTo(Vector3Int newPos)
     {
+        Vector3Int oldPos = gridPos;
         gridPos = newPos;
+
+        OnGridPositionChanged?.Invoke(this, oldPos, newPos);
+
         var grid = SafeGrid;
         if (grid != null)
         {
