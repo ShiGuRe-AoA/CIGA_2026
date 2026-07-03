@@ -211,12 +211,13 @@ public class OrganUnit : PushableObject
     /// </summary>
     public bool CanMoveTo(Vector3Int targetPos)
     {
-        if (mapGrid == null) return false;
+        var grid = SafeGrid;
+        if (grid == null) return false;
 
         if (organType == OrganType.Heart)
             return false;
 
-        if (!mapGrid.IsWalkable(targetPos))
+        if (!grid.IsWalkable(targetPos))
             return false;
 
         if (!IsWithinHeartRange(targetPos))
@@ -370,7 +371,7 @@ public class OrganUnit : PushableObject
 
     private void OnDrawGizmosSelected()
     {
-        if (mapGrid == null || HeartUnit == null) return;
+        if (SafeGrid == null || HeartUnit == null) return;
 
         Gizmos.color = organType == OrganType.Heart
             ? Color.red

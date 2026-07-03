@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -28,6 +29,7 @@ public class MapGrid : MonoBehaviour
     private BoundsInt gridBounds;
     private bool initialized;
     private Grid grid;
+    private HashSet<Vector3Int> blockerCells = new HashSet<Vector3Int>();
 
     /// <summary>地图宽度（格子数）</summary>
     public int Width { get; private set; }
@@ -37,6 +39,18 @@ public class MapGrid : MonoBehaviour
 
     /// <summary>包围盒原点（Grid 坐标系）</summary>
     public Vector3Int Origin => gridBounds.min;
+
+    /// <summary>当移动被某格阻挡时触发，参数为被阻挡的格子坐标</summary>
+    public event System.Action<Vector3Int> OnCellBlocked;
+
+    /// <summary>发出阻挡事件通知</summary>
+    public void NotifyBlocked(Vector3Int cell) => OnCellBlocked?.Invoke(cell);
+
+    /// <summary>将某格注册为由 Impact 触发器动态占用的障碍格</summary>
+    public void RegisterBlocker(Vector3Int cell) => blockerCells.Add(cell);
+
+    /// <summary>取消某格的动态障碍注册</summary>
+    public void UnregisterBlocker(Vector3Int cell) => blockerCells.Remove(cell);
 
     private void Awake()
     {
@@ -120,6 +134,7 @@ public class MapGrid : MonoBehaviour
     /// </summary>
     public bool IsWalkable(Vector3Int cellPos)
     {
+        if (blockerCells.Contains(cellPos)) return false;
         return GetCell(cellPos) == CellType.Empty;
     }
 

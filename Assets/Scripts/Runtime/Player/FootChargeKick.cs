@@ -9,12 +9,9 @@ public class FootChargeKick : MonoBehaviour
 {
     [Header("蓄力")]
     [SerializeField] private KeyCode chargeKey = KeyCode.F;
-    [SerializeField] private float fullChargeTime = 1.2f;      // 满蓄力所需秒数
+    [SerializeField] private float fullChargeTime = 1.2f;
     [SerializeField] private int minKickDistance = 1;
     [SerializeField] private int maxKickDistance = 6;
-
-    [Header("引用")]
-    [SerializeField] private OrganController organController;
 
     private OrganUnit organUnit;
     private float chargeAmount;
@@ -23,11 +20,11 @@ public class FootChargeKick : MonoBehaviour
     /// <summary>是否正在蓄力（阻止移动）</summary>
     public bool IsCharging => charging;
 
+    private OrganController Controller => GameBootstrap.Instance?.OrganController;
+
     private void Awake()
     {
         organUnit = GetComponent<OrganUnit>();
-        if (organController == null)
-            organController = FindObjectOfType<OrganController>();
     }
 
     private void Update()
@@ -71,14 +68,14 @@ public class FootChargeKick : MonoBehaviour
     /// </summary>
     private void ExecuteKick()
     {
-        if (organController == null) return;
+        if (Controller == null) return;
 
         Vector3Int kickDir = Direction4ToVector(organUnit.FacingDirection);
         int distance = Mathf.RoundToInt(Mathf.Lerp(minKickDistance, maxKickDistance, chargeAmount));
 
         Debug.Log($"[FootChargeKick] 踢! 方向:{organUnit.FacingDirection} 蓄力:{chargeAmount:F2} 格数:{distance}");
 
-        organController.ForceKick(organUnit, kickDir, distance);
+        Controller.ForceKick(organUnit, kickDir, distance);
     }
 
     private static Vector3Int Direction4ToVector(Direction4 dir)

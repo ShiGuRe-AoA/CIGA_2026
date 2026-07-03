@@ -15,9 +15,6 @@ public class OrganController : MonoBehaviour
     [Header("关卡目标")]
     [SerializeField] private Vector3Int goalGridPos;
 
-    [Header("引用")]
-    [SerializeField] private MapGrid mapGrid;
-
     [Header("调试")]
     [SerializeField] private bool showDebugLog = true;
 
@@ -34,13 +31,13 @@ public class OrganController : MonoBehaviour
     public OrganUnit HeartUnit => heartUnit;
     public OrganUnit ActiveFoot => (footOrgans.Count > 0) ? footOrgans[activeFootIndex] : null;
 
+    /// <summary>便捷访问 MapGrid 单例</summary>
+    private MapGrid Grid => GameBootstrap.Instance?.MapGrid;
+
     // ─────────── 初始化 ───────────
 
     private void Start()
     {
-        if (mapGrid == null)
-            mapGrid = FindObjectOfType<MapGrid>();
-
         CollectAll();
     }
 
@@ -123,7 +120,7 @@ public class OrganController : MonoBehaviour
 
     private void Update()
     {
-        if (organs.Count == 0 || mapGrid == null) return;
+        if (organs.Count == 0 || Grid == null) return;
 
         HandleFootSwitch();
         HandleEyeCameraSwitch();
@@ -192,6 +189,7 @@ public class OrganController : MonoBehaviour
         // 1. 自身能力检查
         if (!organ.CanMoveTo(targetPos))
         {
+            Grid?.NotifyBlocked(targetPos);
             Log($"[OrganController] {organ.name} 无法移动到 {targetPos}。");
             return;
         }
@@ -258,8 +256,9 @@ public class OrganController : MonoBehaviour
             if (chain.Count > 100) return false;
         }
 
-        if (!mapGrid.IsWalkable(checkPos))
+        if (!Grid.IsWalkable(checkPos))
         {
+            Grid?.NotifyBlocked(checkPos);
             Log($"[OrganController] 推进链终点 {checkPos} 为墙壁。");
             return false;
         }
@@ -297,7 +296,7 @@ public class OrganController : MonoBehaviour
     /// <returns>是否踢到了任何物体</returns>
     public bool ForceKick(OrganUnit foot, Vector3Int kickDir, int pushDistance)
     {
-        if (pushDistance <= 0 || mapGrid == null) return false;
+        if (pushDistance <= 0 || Grid == null) return false;
 
         bool hitAnything = false;
 
@@ -308,7 +307,7 @@ public class OrganController : MonoBehaviour
             PushableObject firstInLine = null;
 
             // 沿踢方向扫描，跳过已空出的格子
-            while (mapGrid.IsWalkable(scanPos))
+            while (Grid.IsWalkable(scanPos))
             {
                 firstInLine = GetPushableAt(scanPos);
                 if (firstInLine != null) break;
@@ -339,7 +338,7 @@ public class OrganController : MonoBehaviour
     /// </summary>
     private void PullOutOfRangeOrgans()
     {
-        if (heartUnit == null || mapGrid == null) return;
+        if (heartUnit == null || Grid == null) return;
 
         int safety = 0;
         bool anyPulled;
@@ -358,7 +357,7 @@ public class OrganController : MonoBehaviour
 
                 Vector3Int target = organ.GridPos + pullDir;
 
-                if (!mapGrid.IsWalkable(target)) continue;
+                if (!Grid.IsWalkable(target)) continue;
                 if (GetPushableAt(target, exclude: organ) != null) continue;
 
                 organ.MoveTo(target);
@@ -416,7 +415,7 @@ public class OrganController : MonoBehaviour
         Vector3Int grabbedNewPos = hand.GridPos + offset;
 
         // 目标格检查
-        if (!mapGrid.IsWalkable(grabbedNewPos))
+        if (!Grid.IsWalkable(grabbedNewPos))
         {
             hand.ReleaseGrabbed();
             Log($"[OrganController] 抓取目标路径为墙壁，自动释放。");
@@ -505,12 +504,12 @@ public class OrganController : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        if (mapGrid == null) return;
+        if (Grid == null) return;
 
         if (Application.isPlaying)
         {
             Gizmos.color = Color.green;
-            Vector3 goalWorld = mapGrid.CellToWorld(goalGridPos);
+            Vector3 goalWorld = Grid.CellToWorld(goalGridPos);
             Gizmos.DrawWireCube(goalWorld, Vector3.one * 0.9f);
             Gizmos.color = new Color(0, 1, 0, 0.15f);
             Gizmos.DrawCube(goalWorld, Vector3.one);
@@ -525,10 +524,10 @@ public class OrganController : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        if (!Application.isPlaying && mapGrid != null)
+        if (!Application.isPlaying && Grid != null)
         {
             Gizmos.color = Color.green;
-            Vector3 goalWorld = mapGrid.CellToWorld(goalGridPos);
+            Vector3 goalWorld = Grid.CellToWorld(goalGridPos);
             Gizmos.DrawWireCube(goalWorld, Vector3.one * 0.9f);
             Gizmos.color = new Color(0, 1, 0, 0.2f);
             Gizmos.DrawCube(goalWorld, Vector3.one * 0.9f);

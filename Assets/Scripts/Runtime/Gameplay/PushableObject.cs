@@ -5,15 +5,13 @@ using DG.Tweening;
 /// 可被推动物体的基类。
 /// 提供网格定位、DOTween 平滑移动、被推动等所有可移动场景物体的共有能力。
 /// OrganUnit 和 ScenePushable 均继承自此基类。
+/// MapGrid 引用通过 GameBootstrap.Instance 获取，无需手动绑定。
 /// </summary>
 public class PushableObject : MonoBehaviour
 {
     [Header("移动")]
     [SerializeField] protected float moveDuration = 0.08f;
     [SerializeField] protected Ease moveEase = Ease.OutQuad;
-
-    [Header("引用")]
-    [SerializeField] protected MapGrid mapGrid;
 
     protected Vector3Int gridPos;
 
@@ -27,11 +25,10 @@ public class PushableObject : MonoBehaviour
     /// <summary>视觉中心世界坐标（子类可覆写）</summary>
     public virtual Vector3 VisualCenter => transform.position;
 
-    protected virtual void Awake()
-    {
-        if (mapGrid == null)
-            mapGrid = FindObjectOfType<MapGrid>();
-    }
+    /// <summary>快捷访问 MapGrid（若未初始化则返回 null）</summary>
+    protected MapGrid SafeGrid => GameBootstrap.Instance?.MapGrid;
+
+    protected virtual void Awake() { }
 
     protected virtual void Start()
     {
@@ -43,10 +40,11 @@ public class PushableObject : MonoBehaviour
     /// </summary>
     public void SnapToGrid()
     {
-        if (mapGrid == null) return;
+        var grid = SafeGrid;
+        if (grid == null) return;
 
-        gridPos = mapGrid.WorldToCell(transform.position);
-        Vector3 worldCenter = mapGrid.CellToWorld(gridPos);
+        gridPos = grid.WorldToCell(transform.position);
+        Vector3 worldCenter = grid.CellToWorld(gridPos);
         transform.DOKill();
         transform.position = worldCenter;
     }
@@ -57,9 +55,10 @@ public class PushableObject : MonoBehaviour
     public virtual void MoveTo(Vector3Int newPos)
     {
         gridPos = newPos;
-        if (mapGrid != null)
+        var grid = SafeGrid;
+        if (grid != null)
         {
-            Vector3 target = mapGrid.CellToWorld(newPos);
+            Vector3 target = grid.CellToWorld(newPos);
             transform.DOKill();
             transform.DOMove(target, moveDuration).SetEase(moveEase);
         }
@@ -78,10 +77,11 @@ public class PushableObject : MonoBehaviour
     /// </summary>
     public virtual bool CanBePushed(Vector3Int pushDir)
     {
-        if (mapGrid == null) return false;
+        var grid = SafeGrid;
+        if (grid == null) return false;
 
         Vector3Int pushedTarget = gridPos + pushDir;
-        return mapGrid.IsWalkable(pushedTarget);
+        return grid.IsWalkable(pushedTarget);
     }
 
     // ─────────── Gizmos ───────────
