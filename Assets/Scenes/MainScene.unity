@@ -592,6 +592,9 @@ MonoBehaviour:
   grabKey: 101
   goalGridPos: {x: 0, y: 0, z: 0}
   showDebugLog: 1
+  useNewPullLogic: 1
+  newPullStepDuration: 0
+  newPullRoundInterval: 0.02
 --- !u!4 &157974038
 Transform:
   m_ObjectHideFlags: 0
@@ -1581,11 +1584,11 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
-  far clip plane: 1000
-  field of view: 34
+  near clip plane: 0.1
+  far clip plane: 5000
+  field of view: 40
   orthographic: 1
-  orthographic size: 4.64
+  orthographic size: 10
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -1610,7 +1613,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 3.0023406, y: -1.0543294, z: -14.898115}
+  m_LocalPosition: {x: -3.0330367, y: 1.4471056, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

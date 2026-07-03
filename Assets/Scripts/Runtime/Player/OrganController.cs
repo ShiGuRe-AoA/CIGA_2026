@@ -18,27 +18,52 @@ public class OrganController : MonoBehaviour
     [Header("调试")]
     [SerializeField] private bool showDebugLog = true;
 
-    // 运行时状态
-    private List<OrganUnit> organs = new List<OrganUnit>();
+    [Header("器官回缩逻辑")]
+    [Tooltip(
+        "关闭：使用原有遍历式回拉和顺序滑回逻辑。\n" +
+        "开启：保留原版寻路规则，每轮先收集移动，再同步播放一格。"
+    )]
+    [SerializeField] private bool useNewPullLogic = false;
+
+    // ─────────── 运行时状态 ───────────
+
+    private readonly List<OrganUnit> organs = new List<OrganUnit>();
     private OrganUnit heartUnit;
-    private List<OrganUnit> handOrgans = new List<OrganUnit>();
-    private List<OrganUnit> footOrgans = new List<OrganUnit>();
-    private List<OrganUnit> eyeOrgans = new List<OrganUnit>();
+
+    private readonly List<OrganUnit> handOrgans = new List<OrganUnit>();
+    private readonly List<OrganUnit> footOrgans = new List<OrganUnit>();
+    private readonly List<OrganUnit> eyeOrgans = new List<OrganUnit>();
+
     private int activeFootIndex;
     private int activeEyeIndex;
     private bool handsGrabbing;
 
-    // O(1) 位置索引，替代原 List<PushableObject> 的全表扫描
-    private GridPositionIndex posIndex = new GridPositionIndex();
+    // O(1) 位置索引，替代原 List<PushableObject> 的全表扫描。
+    private readonly GridPositionIndex posIndex = new GridPositionIndex();
 
-    // 蓄力踢后延时回拉的 Sequence（秒级延迟 + 动画）
+    // 蓄力踢后的延时或旧版顺序滑回动画。
     private Sequence pullBackSequence;
 
-    public OrganUnit HeartUnit => heartUnit;
-    public OrganUnit ActiveFoot => (footOrgans.Count > 0) ? footOrgans[activeFootIndex] : null;
+    [Header("新版回缩动画")]
+    [Tooltip("新版同步回缩中，每一轮移动一格所使用的时间。小于等于 0 时使用器官自身 MoveDuration。")]
+    [SerializeField, Min(0f)] private float newPullStepDuration = 0f;
 
-    /// <summary>MapGrid 单例（公开给 PushContext 等使用）</summary>
+    [Tooltip("新版同步回缩中，相邻两轮之间的停顿时间。设置为 0 时连续逐格移动。")]
+    [SerializeField, Min(0f)] private float newPullRoundInterval = 0.02f;
+
+    // 回缩动画播放期间锁定输入，防止逻辑位置与视觉位置错位时继续操作。
+    private bool isPullingBack;
+
+    public OrganUnit HeartUnit => heartUnit;
+
+    public OrganUnit ActiveFoot =>
+        footOrgans.Count > 0
+            ? footOrgans[activeFootIndex]
+            : null;
+
+    /// <summary>MapGrid 单例（公开给 PushContext 等使用）。</summary>
     public MapGrid MapGrid => GameBootstrap.Instance?.MapGrid;
+
     private MapGrid Grid => MapGrid;
 
     // ─────────── 初始化 ───────────
@@ -50,13 +75,17 @@ public class OrganController : MonoBehaviour
 
     private void OnDestroy()
     {
-        // 取消所有位置变更事件订阅
+        pullBackSequence?.Kill(complete: false);
+        pullBackSequence = null;
+
+        // 取消所有位置变更事件订阅。
         foreach (var pushable in posIndex.AllObjects)
             pushable.OnGridPositionChanged -= OnPushableMoved;
     }
 
     /// <summary>
-    /// 收集所有 OrganUnit 和 PushableObject 子对象，注入引用并对齐网格、初始化摄像机。
+    /// 收集所有 OrganUnit 和 ScenePushable 子对象，
+    /// 注入引用并对齐网格、初始化位置索引与摄像机。
     /// </summary>
     private void CollectAll()
     {
@@ -71,65 +100,93 @@ public class OrganController : MonoBehaviour
             return;
         }
 
-        // 找到心
-        heartUnit = organs.Find(o => o.OrganType == OrganType.Heart);
+        heartUnit = organs.Find(
+            organ => organ.OrganType == OrganType.Heart
+        );
 
-        // 收集手、脚、眼
         handOrgans.Clear();
         footOrgans.Clear();
         eyeOrgans.Clear();
+
         foreach (var organ in organs)
         {
             switch (organ.OrganType)
             {
-                case OrganType.Hand: handOrgans.Add(organ); break;
-                case OrganType.Foot: footOrgans.Add(organ); break;
-                case OrganType.Eye: if (organ.HasCamera) eyeOrgans.Add(organ); break;
+                case OrganType.Hand:
+                    handOrgans.Add(organ);
+                    break;
+
+                case OrganType.Foot:
+                    footOrgans.Add(organ);
+                    break;
+
+                case OrganType.Eye:
+                    if (organ.HasCamera)
+                        eyeOrgans.Add(organ);
+                    break;
             }
 
-            // 订阅位置变更事件，保持索引同步
+            // 避免 CollectAll 被重复调用时产生重复订阅。
+            organ.OnGridPositionChanged -= OnPushableMoved;
             organ.OnGridPositionChanged += OnPushableMoved;
         }
 
-        if (heartUnit      == null) Debug.LogWarning("[OrganController] 未找到 Heart。");
-        if (footOrgans.Count  == 0)   Debug.LogWarning("[OrganController] 未找到 Foot。");
-        if (handOrgans.Count  == 0)   Debug.LogWarning("[OrganController] 未找到 Hand。");
+        if (heartUnit == null)
+            Debug.LogWarning("[OrganController] 未找到 Heart。");
 
-        // 注入心引用 + 对齐网格
+        if (footOrgans.Count == 0)
+            Debug.LogWarning("[OrganController] 未找到 Foot。");
+
+        if (handOrgans.Count == 0)
+            Debug.LogWarning("[OrganController] 未找到 Hand。");
+
+        // 注入心引用。
         foreach (var organ in organs)
             organ.HeartUnit = heartUnit;
 
-        // 收集所有 ScenePushable 子对象并注册到索引
-        var scenePushables = GetComponentsInChildren<ScenePushable>();
-        foreach (var sp in scenePushables)
+        // 收集所有普通场景可推动物。
+        var scenePushables =
+            GetComponentsInChildren<ScenePushable>();
+
+        foreach (var scenePushable in scenePushables)
         {
-            sp.SnapToGrid();
-            sp.OnGridPositionChanged += OnPushableMoved;
+            scenePushable.SnapToGrid();
+
+            scenePushable.OnGridPositionChanged -= OnPushableMoved;
+            scenePushable.OnGridPositionChanged += OnPushableMoved;
         }
 
-        // 批量注册到位置索引
+        // 批量注册到位置索引。
         posIndex.RegisterAll(organs);
-        foreach (var sp in scenePushables)
-            posIndex.Register(sp);
 
-        // 初始化摄像机
+        foreach (var scenePushable in scenePushables)
+            posIndex.Register(scenePushable);
+
         InitCameras();
 
-        Log($"[OrganController] 初始化: {organs.Count} 器官({footOrgans.Count} 脚/{eyeOrgans.Count} 眼), {scenePushables.Length} 场景物体");
+        Log(
+            $"[OrganController] 初始化: {organs.Count} 器官" +
+            $"({footOrgans.Count} 脚/{eyeOrgans.Count} 眼), " +
+            $"{scenePushables.Length} 场景物体"
+        );
     }
 
-    /// <summary>位置变更回调，保持索引表同步。</summary>
-    private void OnPushableMoved(PushableObject obj, Vector3Int oldPos, Vector3Int newPos)
+    /// <summary>位置变化回调，用于保持 GridPositionIndex 同步。</summary>
+    private void OnPushableMoved(
+        PushableObject obj,
+        Vector3Int oldPos,
+        Vector3Int newPos)
     {
         posIndex.OnMoved(obj, oldPos, newPos);
     }
 
     /// <summary>
-    /// 摄像机初始化：有眼则激活第一个眼的摄像机并关闭心，无眼则激活心的摄像机。
+    /// 摄像机初始化：
+    /// 有眼球时激活第一个眼球摄像机；
+    /// 没有眼球时尝试启用心脏摄像机。
     /// </summary>
     private void InitCameras()
     {
-        // 先关闭所有摄像机
         foreach (var organ in organs)
             organ.SetCameraActive(false);
 
@@ -137,7 +194,11 @@ public class OrganController : MonoBehaviour
         {
             activeEyeIndex = 0;
             eyeOrgans[0].SetCameraActive(true);
-            Log($"[OrganController] 摄像机: 眼球 {eyeOrgans[0].name}");
+
+            Log(
+                $"[OrganController] 摄像机: 眼球 " +
+                $"{eyeOrgans[0].name}"
+            );
         }
         else if (heartUnit != null && heartUnit.HasCamera)
         {
@@ -150,12 +211,17 @@ public class OrganController : MonoBehaviour
 
     private void Update()
     {
-        if (organs.Count == 0 || Grid == null) return;
+        if (organs.Count == 0 || Grid == null)
+            return;
 
-        HandleFootSwitch();
-        HandleEyeCameraSwitch();
-        HandleGrabInput();
-        HandleMoveInput();
+        if (!isPullingBack)
+        {
+            HandleFootSwitch();
+            HandleEyeCameraSwitch();
+            HandleGrabInput();
+            HandleMoveInput();
+        }
+
         CheckVictory();
     }
 
@@ -164,96 +230,144 @@ public class OrganController : MonoBehaviour
     /// <summary>LCtrl 在多个脚之间循环切换活动脚。</summary>
     private void HandleFootSwitch()
     {
-        if (footOrgans.Count <= 1) return;
-        if (!Input.GetKeyDown(footSwitchKey)) return;
+        if (footOrgans.Count <= 1)
+            return;
 
-        activeFootIndex = (activeFootIndex + 1) % footOrgans.Count;
-        Log($"[OrganController] 切换到脚: {footOrgans[activeFootIndex].name} ({activeFootIndex + 1}/{footOrgans.Count})");
+        if (!Input.GetKeyDown(footSwitchKey))
+            return;
+
+        activeFootIndex =
+            (activeFootIndex + 1) % footOrgans.Count;
+
+        Log(
+            $"[OrganController] 切换到脚: " +
+            $"{footOrgans[activeFootIndex].name} " +
+            $"({activeFootIndex + 1}/{footOrgans.Count})"
+        );
     }
 
-    /// <summary>Tab 键在多个眼球摄像机之间循环切换。</summary>
+    /// <summary>Tab 在多个眼球摄像机之间循环切换。</summary>
     private void HandleEyeCameraSwitch()
     {
-        if (eyeOrgans.Count <= 1) return;
-        if (!Input.GetKeyDown(eyeSwitchKey)) return;
+        if (eyeOrgans.Count <= 1)
+            return;
+
+        if (!Input.GetKeyDown(eyeSwitchKey))
+            return;
 
         eyeOrgans[activeEyeIndex].SetCameraActive(false);
-        activeEyeIndex = (activeEyeIndex + 1) % eyeOrgans.Count;
+
+        activeEyeIndex =
+            (activeEyeIndex + 1) % eyeOrgans.Count;
+
         eyeOrgans[activeEyeIndex].SetCameraActive(true);
 
-        Log($"[OrganController] 摄像机切换到眼球: {eyeOrgans[activeEyeIndex].name} ({activeEyeIndex + 1}/{eyeOrgans.Count})");
+        Log(
+            $"[OrganController] 摄像机切换到眼球: " +
+            $"{eyeOrgans[activeEyeIndex].name} " +
+            $"({activeEyeIndex + 1}/{eyeOrgans.Count})"
+        );
     }
 
-    /// <summary>WASD / 方向键控制当前活动脚的移动。蓄力时阻止。</summary>
+    /// <summary>
+    /// WASD / 方向键控制当前活动脚。
+    /// 脚正在蓄力时不响应移动输入。
+    /// </summary>
     private void HandleMoveInput()
     {
         Vector3Int dir = GetInputDirection();
-        if (dir == Vector3Int.zero) return;
-        if (ActiveFoot == null) return;
 
-        // 蓄力踢期间不响应方向移动
-        var kick = ActiveFoot.GetComponent<FootChargeKick>();
-        if (kick != null && kick.IsCharging) return;
+        if (dir == Vector3Int.zero)
+            return;
+
+        if (ActiveFoot == null)
+            return;
+
+        var kick =
+            ActiveFoot.GetComponent<FootChargeKick>();
+
+        if (kick != null && kick.IsCharging)
+            return;
 
         ExecuteOrganMove(ActiveFoot, dir);
     }
 
-    /// <summary>E 键切换所有手的抓取/释放，同时触发相邻 Interact 触发器。</summary>
+    /// <summary>
+    /// E 键切换所有手的抓取/释放，
+    /// 抓取时同时触发相邻 Interact 触发器。
+    /// </summary>
     private void HandleGrabInput()
     {
-        if (!Input.GetKeyDown(grabKey)) return;
-        if (handOrgans.Count == 0) return;
+        if (!Input.GetKeyDown(grabKey))
+            return;
+
+        if (handOrgans.Count == 0)
+            return;
 
         if (handsGrabbing)
         {
-            // 释放
             foreach (var hand in handOrgans)
                 hand.ReleaseAllGrabbed();
+
             handsGrabbing = false;
             Log("[OrganController] 所有 Hand 已释放。");
+            return;
         }
-        else
+
+        handsGrabbing = true;
+        int totalGrabbed = 0;
+
+        foreach (var hand in handOrgans)
         {
-            // 抓取：每只手扫描四方向
-            handsGrabbing = true;
-            int totalGrabbed = 0;
+            FireInteractTriggers(hand);
 
-            foreach (var hand in handOrgans)
+            foreach (var direction in Direction4s)
             {
-                FireInteractTriggers(hand);
+                PushableObject obj =
+                    GetPushableAt(hand.GridPos + direction);
 
-                foreach (var d in Direction4s)
-                {
-                    PushableObject obj = GetPushableAt(hand.GridPos + d);
-                    if (obj != null && obj != hand)
-                    {
-                        hand.AddGrabbed(obj);
-                        totalGrabbed++;
-                    }
-                }
+                if (obj == null || obj == hand)
+                    continue;
+
+                hand.AddGrabbed(obj);
+                totalGrabbed++;
             }
-
-            Log($"[OrganController] 所有 Hand 共抓取 {totalGrabbed} 个物体。");
         }
+
+        Log(
+            $"[OrganController] 所有 Hand 共抓取 " +
+            $"{totalGrabbed} 个物体。"
+        );
     }
 
-    private static readonly Vector3Int[] Direction4s = {
-        Vector3Int.up, Vector3Int.down,
-        Vector3Int.left, Vector3Int.right
+    private static readonly Vector3Int[] Direction4s =
+    {
+        Vector3Int.up,
+        Vector3Int.down,
+        Vector3Int.left,
+        Vector3Int.right,
     };
 
     private void FireInteractTriggers(OrganUnit hand)
     {
-        var triggers = GameBootstrap.Instance?.AllTriggers;
-        if (triggers == null) return;
+        var triggers =
+            GameBootstrap.Instance?.AllTriggers;
 
-        foreach (var d in Direction4s)
+        if (triggers == null)
+            return;
+
+        foreach (var direction in Direction4s)
         {
-            Vector3Int checkPos = hand.GridPos + d;
+            Vector3Int checkPos =
+                hand.GridPos + direction;
+
             foreach (var trigger in triggers)
             {
-                if (trigger != null && trigger.GridPos == checkPos)
+                if (trigger != null &&
+                    trigger.GridPos == checkPos)
+                {
                     trigger.Fire();
+                }
             }
         }
     }
@@ -261,93 +375,507 @@ public class OrganController : MonoBehaviour
     // ─────────── 移动执行 ───────────
 
     /// <summary>
-    /// 统一移动入口：任何物体位移都通过此方法。
-    /// 脚移动、心拉回、蓄力踢均调用此方法，确保推链检测一致。
+    /// 统一移动入口。
+    /// 脚移动、旧版心拉回和蓄力踢均通过 PushContext 处理，
+    /// 以保持推动链、抓取跟随和占用检查一致。
     /// </summary>
-    /// <param name="obj">要移动的物体</param>
-    /// <param name="dir">移动方向</param>
-    /// <param name="canPush">是否允许推动前方阻挡物</param>
-    /// <param name="bypassHeart">推链时跳过心距离检查（仅蓄力踢）</param>
-    /// <returns>物体是否成功到达目标格</returns>
-    private bool TryMoveWithPush(PushableObject obj, Vector3Int dir, bool canPush, bool bypassHeart = false)
+    /// <param name="obj">需要移动的物体。</param>
+    /// <param name="dir">单格移动方向。</param>
+    /// <param name="canPush">是否允许推动目标格前方物体。</param>
+    /// <param name="bypassHeart">
+    /// 推动链验证时是否忽略心距离限制，蓄力踢使用 true。
+    /// </param>
+    /// <returns>物体是否成功移动。</returns>
+    private bool TryMoveWithPush(
+        PushableObject obj,
+        Vector3Int dir,
+        bool canPush,
+        bool bypassHeart = false)
     {
-        var ctx = new PushContext(this, posIndex);
-        return ctx.TryMoveWithPush(obj, dir, canPush, bypassHeart);
+        var context =
+            new PushContext(this, posIndex);
+
+        return context.TryMoveWithPush(
+            obj,
+            dir,
+            canPush,
+            bypassHeart
+        );
     }
 
     /// <summary>
-    /// 脚 WASD 移动：脚可推动前方物体，推链受心距离约束。
+    /// 脚的普通 WASD 移动。
+    /// 脚可以推动前方物体，推动链受到心距离约束。
     /// </summary>
-    private void ExecuteOrganMove(OrganUnit foot, Vector3Int dir)
+    private void ExecuteOrganMove(
+        OrganUnit foot,
+        Vector3Int dir)
     {
-        Vector3Int heartOldPos = heartUnit != null ? heartUnit.GridPos : Vector3Int.zero;
+        Vector3Int heartOldPos =
+            heartUnit != null
+                ? heartUnit.GridPos
+                : Vector3Int.zero;
+
         Vector3Int oldPos = foot.GridPos;
 
-        if (!TryMoveWithPush(foot, dir, canPush: true))
+        if (!TryMoveWithPush(
+                foot,
+                dir,
+                canPush: true))
         {
-            Log($"[OrganController] {foot.name} 移动受阻。");
+            Log(
+                $"[OrganController] {foot.name} 移动受阻。"
+            );
             return;
         }
 
-        // 心被推动后拉动超距器官
-        if (heartUnit != null && heartUnit.GridPos != heartOldPos)
-            PullOutOfRangeOrgans();
+        // 心脏被推动后，按照当前选定的新旧逻辑拉回超距器官。
+        if (heartUnit != null &&
+            heartUnit.GridPos != heartOldPos)
+        {
+            PullOutOfRangeOrgansByCurrentMode();
+        }
 
-        Log($"[OrganController] {foot.name} {oldPos} → {foot.GridPos}");
+        Log(
+            $"[OrganController] {foot.name} " +
+            $"{oldPos} → {foot.GridPos}"
+        );
     }
 
     /// <summary>
-    /// 蓄力踢：沿方向逐格推飞物体，无视心距离约束。
-    /// 物体停留在最远端约 1s，然后沿反方向逐格滑回，直至回到心范围。
+    /// 蓄力踢：
+    /// 沿指定方向逐格推飞前方物体，并忽略心距离约束。
+    /// 命中后停留约 1 秒，再按照当前选定的新旧逻辑滑回。
     /// </summary>
-    public bool ForceKick(OrganUnit foot, Vector3Int kickDir, int pushDistance)
+    public bool ForceKick(
+        OrganUnit foot,
+        Vector3Int kickDir,
+        int pushDistance)
     {
-        if (pushDistance <= 0 || Grid == null) return false;
+        if (pushDistance <= 0 || Grid == null)
+            return false;
 
         bool hitAnything = false;
 
         for (int step = 0; step < pushDistance; step++)
         {
-            Vector3Int scanPos = foot.GridPos + kickDir;
+            Vector3Int scanPos =
+                foot.GridPos + kickDir;
+
             PushableObject firstInLine = null;
 
             while (Grid.IsWalkable(scanPos))
             {
-                firstInLine = GetPushableAt(scanPos);
-                if (firstInLine != null) break;
+                firstInLine =
+                    GetPushableAt(scanPos);
+
+                if (firstInLine != null)
+                    break;
+
                 scanPos += kickDir;
             }
 
-            if (firstInLine == null) break;
-
-            if (!TryMoveWithPush(firstInLine, kickDir, canPush: true, bypassHeart: true))
+            if (firstInLine == null)
                 break;
+
+            if (!TryMoveWithPush(
+                    firstInLine,
+                    kickDir,
+                    canPush: true,
+                    bypassHeart: true))
+            {
+                break;
+            }
 
             hitAnything = true;
         }
 
-        if (hitAnything)
-        {
-            Log($"[OrganController] 蓄力踢! 方向 {kickDir} x{pushDistance}");
+        if (!hitAnything)
+            return false;
 
-            // 1 秒后滑回
-            pullBackSequence?.Kill();
-            pullBackSequence = DOTween.Sequence()
-                .AppendInterval(1f)
-                .AppendCallback(() => SlideBackOutOfRangeOrgans());
-        }
+        Log(
+            $"[OrganController] 蓄力踢! " +
+            $"方向 {kickDir} x{pushDistance}"
+        );
 
-        return hitAnything;
+        // 取消尚未执行或仍在播放的旧版滑回 Sequence。
+        pullBackSequence?.Kill(complete: false);
+        pullBackSequence = null;
+
+        pullBackSequence = DOTween.Sequence()
+            .AppendInterval(1f)
+            .AppendCallback(
+                SlideBackOutOfRangeOrgansByCurrentMode
+            );
+
+        return true;
     }
 
-    // ─────────── 心拉动 / 滑回 ───────────
+    // ─────────── 心拉动 / 滑回模式分流 ───────────
 
     /// <summary>
-    /// 脚移动导致心位移后的立即回拉（保持原有步进逻辑）。
+    /// 普通心拉动统一入口。
+    /// Old：使用原有遍历式逐步回拉。
+    /// New：使用位置快照规划最终布局后同步提交。
+    /// </summary>
+    private void PullOutOfRangeOrgansByCurrentMode()
+    {
+        if (useNewPullLogic)
+            PullOutOfRangeOrgans_New();
+        else
+            PullOutOfRangeOrgans();
+    }
+
+    /// <summary>
+    /// 蓄力踢滑回统一入口。
+    /// Old：使用原有逐器官、逐步顺序滑回动画。
+    /// New：使用同步规划结果，让所有器官在同一帧开始回缩。
+    /// </summary>
+    private void SlideBackOutOfRangeOrgansByCurrentMode()
+    {
+        if (useNewPullLogic)
+            SlideBackOutOfRangeOrgans_New();
+        else
+            SlideBackOutOfRangeOrgans();
+    }
+
+    // ─────────── New：保留原寻路的同步逐格回缩 ───────────
+
+    /// <summary>
+    /// 新版普通回拉逻辑。
+    /// 保留原版“远处器官优先、沿差值更大的轴朝心移动”的寻路方式，
+    /// 只将每一轮的真实移动延后到统一播放阶段。
+    /// </summary>
+    private void PullOutOfRangeOrgans_New()
+    {
+        List<Dictionary<OrganUnit, Vector3Int>> rounds =
+            BuildPullRounds_New();
+
+        PlayPullRounds_New(rounds, "普通回拉");
+    }
+
+    /// <summary>
+    /// 新版蓄力踢滑回逻辑。
+    /// 每轮中的所有器官同时移动一格，当前轮完成后再进入下一轮。
+    /// </summary>
+    private void SlideBackOutOfRangeOrgans_New()
+    {
+        List<Dictionary<OrganUnit, Vector3Int>> rounds =
+            BuildPullRounds_New();
+
+        PlayPullRounds_New(rounds, "蓄力踢滑回");
+    }
+
+    /// <summary>
+    /// 使用原版寻路规则构建同步逐格回缩轮次。
+    ///
+    /// 规划期间只修改临时位置和临时占用表，不修改真实 GridPos。
+    /// 每轮依然按距离心脏从远到近处理，以尽量保持原版移动结果。
+    /// </summary>
+    private List<Dictionary<OrganUnit, Vector3Int>> BuildPullRounds_New()
+    {
+        var rounds =
+            new List<Dictionary<OrganUnit, Vector3Int>>();
+
+        if (heartUnit == null || Grid == null)
+            return rounds;
+
+        // 整个规划过程使用的模拟位置。
+        var simulatedPositions =
+            new Dictionary<OrganUnit, Vector3Int>();
+
+        foreach (var organ in organs)
+            simulatedPositions[organ] = organ.GridPos;
+
+        for (int safety = 0; safety < 50; safety++)
+        {
+            // 本轮开始时的占用快照。
+            var occupied =
+                new Dictionary<Vector3Int, PushableObject>();
+
+            // 场景物体视为固定障碍。
+            foreach (var pushable in posIndex.AllObjects)
+            {
+                if (pushable == null || pushable is OrganUnit)
+                    continue;
+
+                occupied[pushable.GridPos] = pushable;
+            }
+
+            // 器官使用模拟位置加入占用表。
+            foreach (var pair in simulatedPositions)
+                occupied[pair.Value] = pair.Key;
+
+            var sortedOrgans =
+                new List<OrganUnit>(organs);
+
+            sortedOrgans.Remove(heartUnit);
+
+            Vector3Int heartPosition =
+                simulatedPositions[heartUnit];
+
+            sortedOrgans.Sort((a, b) =>
+            {
+                int distA = ManhattanDistance_New(
+                    simulatedPositions[a],
+                    heartPosition
+                );
+
+                int distB = ManhattanDistance_New(
+                    simulatedPositions[b],
+                    heartPosition
+                );
+
+                // 与原版一致：离心脏更远的器官先处理。
+                return distB.CompareTo(distA);
+            });
+
+            var roundMoves =
+                new Dictionary<OrganUnit, Vector3Int>();
+
+            foreach (var organ in sortedOrgans)
+            {
+                Vector3Int current =
+                    simulatedPositions[organ];
+
+                if (IsWithinHeartRange_New(
+                        organ,
+                        current,
+                        heartPosition))
+                {
+                    continue;
+                }
+
+                // 与原版 GetPullDirectionTowardHeart 相同的方向规则。
+                Vector3Int pullDir =
+                    GetPullDirectionTowardHeart_New(
+                        current,
+                        heartPosition
+                    );
+
+                if (pullDir == Vector3Int.zero)
+                    continue;
+
+                Vector3Int target =
+                    current + pullDir;
+
+                if (!Grid.IsWalkable(target))
+                    continue;
+
+                // 保留顺序规划的直觉：
+                // 前面器官在临时占用表中先腾格，后面器官再读取更新后的结果。
+                if (occupied.TryGetValue(
+                        target,
+                        out PushableObject blocker) &&
+                    blocker != organ)
+                {
+                    continue;
+                }
+
+                roundMoves[organ] = target;
+
+                occupied.Remove(current);
+                occupied[target] = organ;
+                simulatedPositions[organ] = target;
+            }
+
+            if (roundMoves.Count == 0)
+                break;
+
+            rounds.Add(roundMoves);
+        }
+
+        return rounds;
+    }
+
+    /// <summary>
+    /// 播放同步逐格回缩轮次。
+    /// 同一轮中的 Tween 使用 Join 并行播放；不同轮使用 Append 顺序播放。
+    /// </summary>
+    private void PlayPullRounds_New(
+        List<Dictionary<OrganUnit, Vector3Int>> rounds,
+        string reason)
+    {
+        if (rounds == null || rounds.Count == 0)
+        {
+            pullBackSequence = null;
+            return;
+        }
+
+        pullBackSequence?.Kill(complete: false);
+        pullBackSequence = DOTween.Sequence();
+        isPullingBack = true;
+
+        foreach (var roundMoves in rounds)
+        {
+            if (roundMoves == null || roundMoves.Count == 0)
+                continue;
+
+            Sequence roundSequence = DOTween.Sequence();
+            bool hasMovement = false;
+
+            foreach (var pair in roundMoves)
+            {
+                OrganUnit capturedOrgan = pair.Key;
+                Vector3Int capturedTarget = pair.Value;
+
+                if (capturedOrgan == null ||
+                    capturedOrgan == heartUnit)
+                {
+                    continue;
+                }
+
+                float stepDuration =
+                    newPullStepDuration > 0f
+                        ? newPullStepDuration
+                        : capturedOrgan.MoveDuration;
+
+                // 本轮开始时统一提交逻辑位置。
+                roundSequence.InsertCallback(
+                    0f,
+                    () =>
+                    {
+                        Vector3Int oldPos =
+                            capturedOrgan.GridPos;
+
+                        if (oldPos == capturedTarget)
+                            return;
+
+                        capturedOrgan.GridPos =
+                            capturedTarget;
+
+                        posIndex.OnMoved(
+                            capturedOrgan,
+                            oldPos,
+                            capturedTarget
+                        );
+                    }
+                );
+
+                roundSequence.Join(
+                    capturedOrgan.transform
+                        .DOMove(
+                            Grid.CellToWorld(capturedTarget),
+                            stepDuration
+                        )
+                        .SetEase(Ease.OutQuad)
+                );
+
+                hasMovement = true;
+            }
+
+            if (!hasMovement)
+            {
+                roundSequence.Kill(complete: false);
+                continue;
+            }
+
+            pullBackSequence.Append(roundSequence);
+
+            if (newPullRoundInterval > 0f)
+            {
+                pullBackSequence.AppendInterval(
+                    newPullRoundInterval
+                );
+            }
+        }
+
+        if (pullBackSequence.Duration() <= 0f)
+        {
+            pullBackSequence.Kill(complete: false);
+            pullBackSequence = null;
+            isPullingBack = false;
+            return;
+        }
+
+        pullBackSequence
+            .OnKill(() =>
+            {
+                isPullingBack = false;
+            })
+            .OnComplete(() =>
+            {
+                isPullingBack = false;
+                pullBackSequence = null;
+            })
+            .Play();
+
+        Log(
+            $"[OrganController] New {reason}：" +
+            $"共 {rounds.Count} 轮同步逐格移动。"
+        );
+    }
+
+    /// <summary>
+    /// 根据模拟位置判断器官是否仍处于心距离范围内。
+    /// </summary>
+    private static bool IsWithinHeartRange_New(
+        OrganUnit organ,
+        Vector3Int organPosition,
+        Vector3Int heartPosition)
+    {
+        if (organ == null ||
+            organ.OrganType == OrganType.Heart ||
+            organ.MaxHeartDistance <= 0)
+        {
+            return true;
+        }
+
+        return ManhattanDistance_New(
+            organPosition,
+            heartPosition
+        ) <= organ.MaxHeartDistance;
+    }
+
+    /// <summary>
+    /// 与 OrganUnit.GetPullDirectionTowardHeart 相同：
+    /// 优先沿当前位置与心脏差值更大的轴移动一格。
+    /// </summary>
+    private static Vector3Int GetPullDirectionTowardHeart_New(
+        Vector3Int current,
+        Vector3Int heartPosition)
+    {
+        int dx = heartPosition.x - current.x;
+        int dy = heartPosition.y - current.y;
+
+        if (Mathf.Abs(dx) >= Mathf.Abs(dy))
+        {
+            return new Vector3Int(
+                dx > 0 ? 1 : dx < 0 ? -1 : 0,
+                0,
+                0
+            );
+        }
+
+        return new Vector3Int(
+            0,
+            dy > 0 ? 1 : dy < 0 ? -1 : 0,
+            0
+        );
+    }
+
+    private static int ManhattanDistance_New(
+        Vector3Int a,
+        Vector3Int b)
+    {
+        return Mathf.Abs(a.x - b.x) +
+               Mathf.Abs(a.y - b.y);
+    }
+
+    // ─────────── Old：原有遍历回拉 / 顺序滑回 ───────────
+
+    /// <summary>
+    /// 脚移动导致心位移后的立即回拉。
+    ///
+    /// 原有逻辑完整保留：
+    /// 按距离从远到近遍历超距器官，
+    /// 每次移动一格并立即更新真实占用状态，
+    /// 直到无法继续移动或全部回到心距离范围。
     /// </summary>
     private void PullOutOfRangeOrgans()
     {
-        if (heartUnit == null || Grid == null) return;
+        if (heartUnit == null || Grid == null)
+            return;
 
         int safety = 0;
         bool anyPulled;
@@ -356,24 +884,51 @@ public class OrganController : MonoBehaviour
         {
             anyPulled = false;
 
-            var sortedOrgans = new List<OrganUnit>(organs);
+            var sortedOrgans =
+                new List<OrganUnit>(organs);
+
             sortedOrgans.Remove(heartUnit);
+
             sortedOrgans.Sort((a, b) =>
             {
-                int distA = Mathf.Abs(a.GridPos.x - heartUnit.GridPos.x) + Mathf.Abs(a.GridPos.y - heartUnit.GridPos.y);
-                int distB = Mathf.Abs(b.GridPos.x - heartUnit.GridPos.x) + Mathf.Abs(b.GridPos.y - heartUnit.GridPos.y);
+                int distA =
+                    Mathf.Abs(
+                        a.GridPos.x - heartUnit.GridPos.x
+                    ) +
+                    Mathf.Abs(
+                        a.GridPos.y - heartUnit.GridPos.y
+                    );
+
+                int distB =
+                    Mathf.Abs(
+                        b.GridPos.x - heartUnit.GridPos.x
+                    ) +
+                    Mathf.Abs(
+                        b.GridPos.y - heartUnit.GridPos.y
+                    );
+
+                // 原逻辑：距离心脏更远的器官优先处理。
                 return distB.CompareTo(distA);
             });
 
             foreach (var organ in sortedOrgans)
             {
-                if (!organ.IsOutOfHeartRange()) continue;
+                if (!organ.IsOutOfHeartRange())
+                    continue;
 
-                Vector3Int pullDir = organ.GetPullDirectionTowardHeart();
-                if (pullDir == Vector3Int.zero) continue;
+                Vector3Int pullDir =
+                    organ.GetPullDirectionTowardHeart();
 
-                if (TryMoveWithPush(organ, pullDir, canPush: true))
+                if (pullDir == Vector3Int.zero)
+                    continue;
+
+                if (TryMoveWithPush(
+                        organ,
+                        pullDir,
+                        canPush: true))
+                {
                     anyPulled = true;
+                }
             }
 
             safety++;
@@ -382,88 +937,182 @@ public class OrganController : MonoBehaviour
     }
 
     /// <summary>
-    /// 蓄力踢后滑回：所有超距器官沿反方向逐格滑回，每步播放 DOTween 动画。
-    /// 不再由心推拉，而是直接计算步数 + 动画。
+    /// 蓄力踢后的原有滑回逻辑。
+    ///
+    /// 原有逻辑完整保留：
+    /// 收集所有超距器官，按距离从远到近处理；
+    /// 每个器官逐格修改逻辑位置并依次 Append Tween，
+    /// 因此动画表现为一个器官完成后再处理下一个器官。
+    ///
+    /// 该方法保留用于对照和快速回退。
     /// </summary>
     private void SlideBackOutOfRangeOrgans()
     {
-        if (heartUnit == null || Grid == null) return;
+        if (heartUnit == null || Grid == null)
+            return;
 
-        // 收集超距器官（非心），按距离从远到近排序
-        var outOfRange = new List<OrganUnit>();
+        // 收集超距器官，排除心脏。
+        var outOfRange =
+            new List<OrganUnit>();
+
         foreach (var organ in organs)
         {
-            if (organ != heartUnit && organ.IsOutOfHeartRange())
+            if (organ != heartUnit &&
+                organ.IsOutOfHeartRange())
+            {
                 outOfRange.Add(organ);
+            }
         }
+
         outOfRange.Sort((a, b) =>
         {
-            int distA = Mathf.Abs(a.GridPos.x - heartUnit.GridPos.x) + Mathf.Abs(a.GridPos.y - heartUnit.GridPos.y);
-            int distB = Mathf.Abs(b.GridPos.x - heartUnit.GridPos.x) + Mathf.Abs(b.GridPos.y - heartUnit.GridPos.y);
-            return distB.CompareTo(distA); // 远的在前
+            int distA =
+                Mathf.Abs(
+                    a.GridPos.x - heartUnit.GridPos.x
+                ) +
+                Mathf.Abs(
+                    a.GridPos.y - heartUnit.GridPos.y
+                );
+
+            int distB =
+                Mathf.Abs(
+                    b.GridPos.x - heartUnit.GridPos.x
+                ) +
+                Mathf.Abs(
+                    b.GridPos.y - heartUnit.GridPos.y
+                );
+
+            // 原逻辑：距离更远的器官优先滑回。
+            return distB.CompareTo(distA);
         });
 
-        if (outOfRange.Count == 0) return;
+        if (outOfRange.Count == 0)
+        {
+            pullBackSequence = null;
+            return;
+        }
 
-        // 终止所有超距器官的现有 Tweens
+        // 终止这些器官当前正在播放的位移动画。
         foreach (var organ in outOfRange)
             organ.transform.DOKill(complete: false);
 
-        // 构建 Sequential 滑回动画
         var grid = Grid;
-        var seq = DOTween.Sequence();
 
-        int safety = 0;
+        // 使用字段保存旧版完整滑回 Sequence，
+        // 使下一次蓄力踢能够 Kill 当前顺序滑回动画。
+        pullBackSequence = DOTween.Sequence();
+        isPullingBack = true;
+
+        int processedOrganCount = 0;
+
         foreach (var organ in outOfRange)
         {
-            // 每器官最多 50 步防止死循环
-            for (int step = 0; step < 50 && organ.IsOutOfHeartRange(); step++)
+            // 每个器官最多向心滑动 50 格，防止异常配置导致死循环。
+            for (int step = 0;
+                 step < 50 &&
+                 organ.IsOutOfHeartRange();
+                 step++)
             {
-                Vector3Int pullDir = organ.GetPullDirectionTowardHeart();
-                if (pullDir == Vector3Int.zero) break;
+                Vector3Int pullDir =
+                    organ.GetPullDirectionTowardHeart();
 
-                Vector3Int newPos = organ.GridPos + pullDir;
+                if (pullDir == Vector3Int.zero)
+                    break;
 
-                // 更新网格位置（直接改 gridPos + 通知索引，不启动 DOMove）
-                Vector3Int oldGrid = organ.GridPos;
+                Vector3Int newPos =
+                    organ.GridPos + pullDir;
+
+                // 原逻辑保留：
+                // 直接更新 GridPos 和位置索引，
+                // 不通过 MoveTo 创建每一步 Tween。
+                Vector3Int oldGrid =
+                    organ.GridPos;
+
                 organ.GridPos = newPos;
-                posIndex.OnMoved(organ, oldGrid, newPos);
 
-                Vector3 targetWorld = grid.CellToWorld(newPos);
-                seq.Append(organ.transform
-                    .DOMove(targetWorld, organ.MoveDuration)
-                    .SetEase(Ease.OutQuad));
+                posIndex.OnMoved(
+                    organ,
+                    oldGrid,
+                    newPos
+                );
+
+                Vector3 targetWorld =
+                    grid.CellToWorld(newPos);
+
+                // 原逻辑使用 Append，因此所有步进严格顺序播放。
+                pullBackSequence.Append(
+                    organ.transform
+                        .DOMove(
+                            targetWorld,
+                            organ.MoveDuration
+                        )
+                        .SetEase(Ease.OutQuad)
+                );
             }
 
-            safety++;
-            if (safety >= 50) break;
+            processedOrganCount++;
+
+            // 保留原有最多处理 50 个器官的保护逻辑。
+            if (processedOrganCount >= 50)
+                break;
         }
 
-        if (seq.Duration() > 0f)
+        if (pullBackSequence.Duration() <= 0f)
         {
-            seq.Play();
-            Log($"[OrganController]  滑回 {outOfRange.Count} 个超距器官");
+            pullBackSequence.Kill(complete: false);
+            pullBackSequence = null;
+            isPullingBack = false;
+            return;
         }
+
+        pullBackSequence
+            .OnKill(() =>
+            {
+                isPullingBack = false;
+            })
+            .OnComplete(() =>
+            {
+                isPullingBack = false;
+                pullBackSequence = null;
+            })
+            .Play();
+
+        Log(
+            $"[OrganController] 使用 Old 逻辑顺序滑回 " +
+            $"{outOfRange.Count} 个超距器官。"
+        );
     }
 
     // ─────────── 查询 ───────────
 
-    /// <summary>O(1) 获取指定格子上任意可推动物体。可排除自身。</summary>
-    public PushableObject GetPushableAt(Vector3Int cellPos, PushableObject exclude = null)
+    /// <summary>
+    /// O(1) 获取指定格子上的可推动物体，
+    /// 可通过 exclude 排除指定对象。
+    /// </summary>
+    public PushableObject GetPushableAt(
+        Vector3Int cellPos,
+        PushableObject exclude = null)
     {
         return posIndex.GetAt(cellPos, exclude);
     }
 
     /// <summary>
-    /// 获取指定格子上的器官（内部仍用于器官专属逻辑）。
+    /// 获取指定格子上的器官。
+    /// 该方法保留供器官专属逻辑使用。
     /// </summary>
-    public OrganUnit GetOrganAt(Vector3Int cellPos, PushableObject exclude = null)
+    public OrganUnit GetOrganAt(
+        Vector3Int cellPos,
+        PushableObject exclude = null)
     {
         foreach (var organ in organs)
         {
-            if (organ == exclude) continue;
-            if (organ.GridPos == cellPos) return organ;
+            if (organ == exclude)
+                continue;
+
+            if (organ.GridPos == cellPos)
+                return organ;
         }
+
         return null;
     }
 
@@ -471,25 +1120,40 @@ public class OrganController : MonoBehaviour
 
     private void CheckVictory()
     {
-        if (heartUnit == null) return;
+        if (heartUnit == null)
+            return;
+
         if (heartUnit.GridPos == goalGridPos)
-        {
             Log("[OrganController] ★ 心已到达目标！胜利！");
-        }
     }
 
     // ─────────── 输入解析 ───────────
 
     private Vector3Int GetInputDirection()
     {
-        if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
+        if (Input.GetKeyDown(KeyCode.W) ||
+            Input.GetKeyDown(KeyCode.UpArrow))
+        {
             return Vector3Int.up;
-        if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))
+        }
+
+        if (Input.GetKeyDown(KeyCode.S) ||
+            Input.GetKeyDown(KeyCode.DownArrow))
+        {
             return Vector3Int.down;
-        if (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow))
+        }
+
+        if (Input.GetKeyDown(KeyCode.A) ||
+            Input.GetKeyDown(KeyCode.LeftArrow))
+        {
             return Vector3Int.left;
-        if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow))
+        }
+
+        if (Input.GetKeyDown(KeyCode.D) ||
+            Input.GetKeyDown(KeyCode.RightArrow))
+        {
             return Vector3Int.right;
+        }
 
         return Vector3Int.zero;
     }
@@ -498,41 +1162,71 @@ public class OrganController : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        if (Grid == null) return;
+        if (Grid == null)
+            return;
 
         if (Application.isPlaying)
         {
             Gizmos.color = Color.green;
-            Vector3 goalWorld = Grid.CellToWorld(goalGridPos);
-            Gizmos.DrawWireCube(goalWorld, Vector3.one * 0.9f);
-            Gizmos.color = new Color(0, 1, 0, 0.15f);
-            Gizmos.DrawCube(goalWorld, Vector3.one);
+
+            Vector3 goalWorld =
+                Grid.CellToWorld(goalGridPos);
+
+            Gizmos.DrawWireCube(
+                goalWorld,
+                Vector3.one * 0.9f
+            );
+
+            Gizmos.color =
+                new Color(0f, 1f, 0f, 0.15f);
+
+            Gizmos.DrawCube(
+                goalWorld,
+                Vector3.one
+            );
         }
 
-        if (Application.isPlaying && ActiveFoot != null)
+        if (Application.isPlaying &&
+            ActiveFoot != null)
         {
             Gizmos.color = Color.cyan;
-            Gizmos.DrawWireCube(ActiveFoot.transform.position, Vector3.one * 1.05f);
+
+            Gizmos.DrawWireCube(
+                ActiveFoot.transform.position,
+                Vector3.one * 1.05f
+            );
         }
     }
 
     private void OnDrawGizmosSelected()
     {
-        if (!Application.isPlaying && Grid != null)
-        {
-            Gizmos.color = Color.green;
-            Vector3 goalWorld = Grid.CellToWorld(goalGridPos);
-            Gizmos.DrawWireCube(goalWorld, Vector3.one * 0.9f);
-            Gizmos.color = new Color(0, 1, 0, 0.2f);
-            Gizmos.DrawCube(goalWorld, Vector3.one * 0.9f);
-        }
+        if (Application.isPlaying || Grid == null)
+            return;
+
+        Gizmos.color = Color.green;
+
+        Vector3 goalWorld =
+            Grid.CellToWorld(goalGridPos);
+
+        Gizmos.DrawWireCube(
+            goalWorld,
+            Vector3.one * 0.9f
+        );
+
+        Gizmos.color =
+            new Color(0f, 1f, 0f, 0.2f);
+
+        Gizmos.DrawCube(
+            goalWorld,
+            Vector3.one * 0.9f
+        );
     }
 
     // ─────────── 工具 ───────────
 
-    private void Log(string msg)
+    private void Log(string message)
     {
         if (showDebugLog)
-            Debug.Log(msg);
+            Debug.Log(message);
     }
 }
