@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using DG.Tweening;
 
 /// <summary>
 /// 器官控制器 —— WASD 控制脚，LCtrl 切脚，Tab 切眼球摄像机，E 键多手抓取/释放。
@@ -29,6 +30,9 @@ public class OrganController : MonoBehaviour
 
     // O(1) 位置索引，替代原 List<PushableObject> 的全表扫描
     private GridPositionIndex posIndex = new GridPositionIndex();
+
+    // 蓄力踢后延时回拉的 Sequence（秒级延迟 + 动画）
+    private Sequence pullBackSequence;
 
     public OrganUnit HeartUnit => heartUnit;
     public OrganUnit ActiveFoot => (footOrgans.Count > 0) ? footOrgans[activeFootIndex] : null;
@@ -257,57 +261,44 @@ public class OrganController : MonoBehaviour
     // ─────────── 移动执行 ───────────
 
     /// <summary>
-    /// 执行器官移动，统一使用 PushContext 处理推进链和抓取跟随。
+    /// 统一移动入口：任何物体位移都通过此方法。
+    /// 脚移动、心拉回、蓄力踢均调用此方法，确保推链检测一致。
     /// </summary>
-    private void ExecuteOrganMove(OrganUnit organ, Vector3Int dir)
+    /// <param name="obj">要移动的物体</param>
+    /// <param name="dir">移动方向</param>
+    /// <param name="canPush">是否允许推动前方阻挡物</param>
+    /// <param name="bypassHeart">推链时跳过心距离检查（仅蓄力踢）</param>
+    /// <returns>物体是否成功到达目标格</returns>
+    private bool TryMoveWithPush(PushableObject obj, Vector3Int dir, bool canPush, bool bypassHeart = false)
     {
-        Vector3Int targetPos = organ.GridPos + dir;
-
-        // 1. 自身能力预检查
-        if (!organ.CanMoveTo(targetPos))
-        {
-            Grid?.NotifyBlocked(targetPos);
-            Log($"[OrganController] {organ.name} 无法移动到 {targetPos}。");
-            return;
-        }
-
-        // 记录心跳动前的位置
-        Vector3Int heartOldPos = heartUnit != null ? heartUnit.GridPos : Vector3Int.zero;
-
-        // 2. 使用 PushContext 统一处理推进链（仅脚可推）
-        PushableObject occupier = GetPushableAt(targetPos, exclude: organ);
-        if (occupier != null)
-        {
-            if (organ.OrganType != OrganType.Foot)
-            {
-                Log($"[OrganController] {targetPos} 被 {occupier.name} 占据，{organ.name} 无法移动。");
-                return;
-            }
-
-            var ctx = new PushContext(this, posIndex);
-            if (!ctx.CanPush(occupier.GridPos, dir))
-            {
-                Log($"[OrganController] 推进链受阻。");
-                return;
-            }
-
-            ctx.Execute(dir);
-        }
-
-        // 3. 执行自身移动
-        Vector3Int oldPos = organ.GridPos;
-        organ.TryMoveSelf(dir);
-
-        // 4. 心移动后拉动超距器官
-        if (heartUnit != null && heartUnit.GridPos != heartOldPos)
-            PullOutOfRangeOrgans();
-
-        Log($"[OrganController] {organ.name} {oldPos} → {targetPos}");
+        var ctx = new PushContext(this, posIndex);
+        return ctx.TryMoveWithPush(obj, dir, canPush, bypassHeart);
     }
 
     /// <summary>
-    /// 蓄力踢：沿指定方向推动所有阻挡物体若干格，忽略心距离约束。
-    /// 踢完后自动将超距器官拉回。
+    /// 脚 WASD 移动：脚可推动前方物体，推链受心距离约束。
+    /// </summary>
+    private void ExecuteOrganMove(OrganUnit foot, Vector3Int dir)
+    {
+        Vector3Int heartOldPos = heartUnit != null ? heartUnit.GridPos : Vector3Int.zero;
+        Vector3Int oldPos = foot.GridPos;
+
+        if (!TryMoveWithPush(foot, dir, canPush: true))
+        {
+            Log($"[OrganController] {foot.name} 移动受阻。");
+            return;
+        }
+
+        // 心被推动后拉动超距器官
+        if (heartUnit != null && heartUnit.GridPos != heartOldPos)
+            PullOutOfRangeOrgans();
+
+        Log($"[OrganController] {foot.name} {oldPos} → {foot.GridPos}");
+    }
+
+    /// <summary>
+    /// 蓄力踢：沿方向逐格推飞物体，无视心距离约束。
+    /// 物体停留在最远端约 1s，然后沿反方向逐格滑回，直至回到心范围。
     /// </summary>
     public bool ForceKick(OrganUnit foot, Vector3Int kickDir, int pushDistance)
     {
@@ -317,7 +308,6 @@ public class OrganController : MonoBehaviour
 
         for (int step = 0; step < pushDistance; step++)
         {
-            // 从脚前方开始扫描，找到第一个阻挡物
             Vector3Int scanPos = foot.GridPos + kickDir;
             PushableObject firstInLine = null;
 
@@ -330,28 +320,30 @@ public class OrganController : MonoBehaviour
 
             if (firstInLine == null) break;
 
-            // 使用 PushContext 统一推动（忽略心距离）
-            var ctx = new PushContext(this, posIndex);
-            if (!ctx.CanPush(firstInLine.GridPos, kickDir, bypassHeart: true))
+            if (!TryMoveWithPush(firstInLine, kickDir, canPush: true, bypassHeart: true))
                 break;
 
-            ctx.Execute(kickDir);
             hitAnything = true;
         }
 
         if (hitAnything)
         {
             Log($"[OrganController] 蓄力踢! 方向 {kickDir} x{pushDistance}");
-            PullOutOfRangeOrgans();
+
+            // 1 秒后滑回
+            pullBackSequence?.Kill();
+            pullBackSequence = DOTween.Sequence()
+                .AppendInterval(1f)
+                .AppendCallback(() => SlideBackOutOfRangeOrgans());
         }
 
         return hitAnything;
     }
 
-    // ─────────── 心拉动 ───────────
+    // ─────────── 心拉动 / 滑回 ───────────
 
     /// <summary>
-    /// 心移动后，将超出范围的器官逐步拉向心。仅作用于 OrganUnit。
+    /// 脚移动导致心位移后的立即回拉（保持原有步进逻辑）。
     /// </summary>
     private void PullOutOfRangeOrgans()
     {
@@ -364,14 +356,13 @@ public class OrganController : MonoBehaviour
         {
             anyPulled = false;
 
-            // 按距离心从远到近排序，远处器官先拉，避免被近处堵住
             var sortedOrgans = new List<OrganUnit>(organs);
             sortedOrgans.Remove(heartUnit);
             sortedOrgans.Sort((a, b) =>
             {
                 int distA = Mathf.Abs(a.GridPos.x - heartUnit.GridPos.x) + Mathf.Abs(a.GridPos.y - heartUnit.GridPos.y);
                 int distB = Mathf.Abs(b.GridPos.x - heartUnit.GridPos.x) + Mathf.Abs(b.GridPos.y - heartUnit.GridPos.y);
-                return distB.CompareTo(distA); // 降序：远的在前
+                return distB.CompareTo(distA);
             });
 
             foreach (var organ in sortedOrgans)
@@ -381,28 +372,77 @@ public class OrganController : MonoBehaviour
                 Vector3Int pullDir = organ.GetPullDirectionTowardHeart();
                 if (pullDir == Vector3Int.zero) continue;
 
-                Vector3Int target = organ.GridPos + pullDir;
-
-                if (!Grid.IsWalkable(target)) continue;
-                if (GetPushableAt(target, exclude: organ) != null) continue;
-
-                organ.MoveTo(target);
-                anyPulled = true;
-                Log($"[OrganController]  心拉动 {organ.name} → {target}");
+                if (TryMoveWithPush(organ, pullDir, canPush: true))
+                    anyPulled = true;
             }
 
             safety++;
         }
         while (anyPulled && safety < 50);
+    }
 
-        // 蓄力踢后兜底：仍有超距器官时打印警告
-        if (safety > 1)
+    /// <summary>
+    /// 蓄力踢后滑回：所有超距器官沿反方向逐格滑回，每步播放 DOTween 动画。
+    /// 不再由心推拉，而是直接计算步数 + 动画。
+    /// </summary>
+    private void SlideBackOutOfRangeOrgans()
+    {
+        if (heartUnit == null || Grid == null) return;
+
+        // 收集超距器官（非心），按距离从远到近排序
+        var outOfRange = new List<OrganUnit>();
+        foreach (var organ in organs)
         {
-            foreach (var organ in organs)
+            if (organ != heartUnit && organ.IsOutOfHeartRange())
+                outOfRange.Add(organ);
+        }
+        outOfRange.Sort((a, b) =>
+        {
+            int distA = Mathf.Abs(a.GridPos.x - heartUnit.GridPos.x) + Mathf.Abs(a.GridPos.y - heartUnit.GridPos.y);
+            int distB = Mathf.Abs(b.GridPos.x - heartUnit.GridPos.x) + Mathf.Abs(b.GridPos.y - heartUnit.GridPos.y);
+            return distB.CompareTo(distA); // 远的在前
+        });
+
+        if (outOfRange.Count == 0) return;
+
+        // 终止所有超距器官的现有 Tweens
+        foreach (var organ in outOfRange)
+            organ.transform.DOKill(complete: false);
+
+        // 构建 Sequential 滑回动画
+        var grid = Grid;
+        var seq = DOTween.Sequence();
+
+        int safety = 0;
+        foreach (var organ in outOfRange)
+        {
+            // 每器官最多 50 步防止死循环
+            for (int step = 0; step < 50 && organ.IsOutOfHeartRange(); step++)
             {
-                if (organ != heartUnit && organ.IsOutOfHeartRange())
-                    Log($"[OrganController]  ⚠ {organ.name} 仍超距 {organ.GridPos}，被障碍物阻挡无法回拉");
+                Vector3Int pullDir = organ.GetPullDirectionTowardHeart();
+                if (pullDir == Vector3Int.zero) break;
+
+                Vector3Int newPos = organ.GridPos + pullDir;
+
+                // 更新网格位置（直接改 gridPos + 通知索引，不启动 DOMove）
+                Vector3Int oldGrid = organ.GridPos;
+                organ.GridPos = newPos;
+                posIndex.OnMoved(organ, oldGrid, newPos);
+
+                Vector3 targetWorld = grid.CellToWorld(newPos);
+                seq.Append(organ.transform
+                    .DOMove(targetWorld, organ.MoveDuration)
+                    .SetEase(Ease.OutQuad));
             }
+
+            safety++;
+            if (safety >= 50) break;
+        }
+
+        if (seq.Duration() > 0f)
+        {
+            seq.Play();
+            Log($"[OrganController]  滑回 {outOfRange.Count} 个超距器官");
         }
     }
 

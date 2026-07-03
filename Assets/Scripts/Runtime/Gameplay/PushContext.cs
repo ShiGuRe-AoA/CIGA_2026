@@ -176,4 +176,75 @@ public class PushContext
             grabbed.MoveTo(grabbed.GridPos + dir);
         }
     }
+
+    // ─────────── 统一移动入口 ───────────
+
+    /// <summary>
+    /// 统一移动入口：尝试将物体向指定方向移动一格。
+    /// 这是整个推箱子系统的核心——无论脚移动、心拉回还是蓄力踢，
+    /// 任何物体位移都通过此方法，确保推链检测一致。
+    ///
+    /// 流程：
+    ///   1. 检查目标格是否可行走（墙壁/心距离）
+    ///   2. 目标格为空 → 直接移动
+    ///   3. 目标格被占据 → canPush 时扫描并执行推进链，否则阻塞
+    /// </summary>
+    /// <param name="obj">要移动的物体</param>
+    /// <param name="dir">移动方向</param>
+    /// <param name="canPush">是否允许推动前方阻挡物</param>
+    /// <param name="bypassHeart">推链时是否跳过心距离检查（仅蓄力踢用）</param>
+    /// <returns>物体是否成功到达目标格</returns>
+    public bool TryMoveWithPush(PushableObject obj, Vector3Int dir, bool canPush, bool bypassHeart = false)
+    {
+        var grid = controller.MapGrid;
+        if (grid == null) return false;
+
+        Vector3Int targetPos = obj.GridPos + dir;
+
+        // 1. 自身能力检查
+        if (obj is OrganUnit organ)
+        {
+            if (bypassHeart)
+            {
+                // 蓄力踢模式：仅检查墙壁，忽略心距离（后续由 PullOutOfRangeOrgans 拉回）
+                if (!grid.IsWalkable(targetPos))
+                {
+                    grid.NotifyBlocked(targetPos);
+                    return false;
+                }
+            }
+            else if (!organ.CanMoveTo(targetPos))
+            {
+                grid.NotifyBlocked(targetPos);
+                return false;
+            }
+        }
+        else
+        {
+            // 场景物体：只检查墙壁
+            if (!grid.IsWalkable(targetPos))
+            {
+                grid.NotifyBlocked(targetPos);
+                return false;
+            }
+        }
+
+        // 2. 目标格有占据物 → 尝试推动
+        PushableObject occupier = posIndex.GetAt(targetPos, obj);
+        if (occupier != null)
+        {
+            if (!canPush)
+                return false;
+
+            // 复用 PushContext 的扫描-验证-执行流程
+            if (!CanPush(occupier.GridPos, dir, bypassHeart))
+                return false;
+
+            Execute(dir);
+        }
+
+        // 3. 移动自身
+        obj.MoveTo(targetPos);
+        return true;
+    }
 }

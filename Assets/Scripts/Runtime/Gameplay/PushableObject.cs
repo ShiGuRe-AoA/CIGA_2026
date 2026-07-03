@@ -26,6 +26,9 @@ public class PushableObject : MonoBehaviour
     /// <summary>视觉中心世界坐标（子类可覆写）</summary>
     public virtual Vector3 VisualCenter => transform.position;
 
+    /// <summary>单格移动动画时长</summary>
+    public float MoveDuration => moveDuration;
+
     /// <summary>快捷访问 MapGrid（若未初始化则返回 null）</summary>
     protected MapGrid SafeGrid => GameBootstrap.Instance?.MapGrid;
 
