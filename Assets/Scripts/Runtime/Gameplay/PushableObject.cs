@@ -1,21 +1,21 @@
 using UnityEngine;
+using DG.Tweening;
 
 /// <summary>
 /// 可被推动物体的基类。
-/// 提供网格定位、平滑移动、被推动等所有可移动场景物体的共有能力。
+/// 提供网格定位、DOTween 平滑移动、被推动等所有可移动场景物体的共有能力。
 /// OrganUnit 和 ScenePushable 均继承自此基类。
 /// </summary>
 public class PushableObject : MonoBehaviour
 {
     [Header("移动")]
-    [SerializeField] protected float moveSmoothTime = 0.08f;
+    [SerializeField] protected float moveDuration = 0.08f;
+    [SerializeField] protected Ease moveEase = Ease.OutQuad;
 
     [Header("引用")]
     [SerializeField] protected MapGrid mapGrid;
 
     protected Vector3Int gridPos;
-    protected Vector3 targetWorldPos;
-    protected Vector3 moveVelocity;
 
     /// <summary>当前格子坐标</summary>
     public Vector3Int GridPos
@@ -38,26 +38,6 @@ public class PushableObject : MonoBehaviour
         SnapToGrid();
     }
 
-    protected virtual void Update()
-    {
-        SmoothMoveToTarget();
-    }
-
-    /// <summary>
-    /// 平滑移动到目标世界坐标。
-    /// </summary>
-    private void SmoothMoveToTarget()
-    {
-        if (targetWorldPos.sqrMagnitude > 0.01f)
-        {
-            transform.position = Vector3.SmoothDamp(
-                transform.position,
-                targetWorldPos,
-                ref moveVelocity,
-                moveSmoothTime);
-        }
-    }
-
     /// <summary>
     /// 将当前世界坐标吸附到最近网格中心，初始化格子位置。
     /// </summary>
@@ -66,18 +46,23 @@ public class PushableObject : MonoBehaviour
         if (mapGrid == null) return;
 
         gridPos = mapGrid.WorldToCell(transform.position);
-        targetWorldPos = mapGrid.CellToWorld(gridPos);
-        transform.position = targetWorldPos;
+        Vector3 worldCenter = mapGrid.CellToWorld(gridPos);
+        transform.DOKill();
+        transform.position = worldCenter;
     }
 
     /// <summary>
-    /// 更新格子坐标并设定平滑移动目标到新格子的世界中心。
+    /// 更新格子坐标，并用 DOTween 平滑移动到新格子中心。
     /// </summary>
     public virtual void MoveTo(Vector3Int newPos)
     {
         gridPos = newPos;
         if (mapGrid != null)
-            targetWorldPos = mapGrid.CellToWorld(newPos);
+        {
+            Vector3 target = mapGrid.CellToWorld(newPos);
+            transform.DOKill();
+            transform.DOMove(target, moveDuration).SetEase(moveEase);
+        }
     }
 
     /// <summary>

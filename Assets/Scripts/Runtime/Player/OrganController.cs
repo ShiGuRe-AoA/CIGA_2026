@@ -157,12 +157,16 @@ public class OrganController : MonoBehaviour
         Log($"[OrganController] 摄像机切换到眼球: {eyeOrgans[activeEyeIndex].name} ({activeEyeIndex + 1}/{eyeOrgans.Count})");
     }
 
-    /// <summary>WASD / 方向键控制当前活动脚的移动。</summary>
+    /// <summary>WASD / 方向键控制当前活动脚的移动。蓄力时阻止。</summary>
     private void HandleMoveInput()
     {
         Vector3Int dir = GetInputDirection();
         if (dir == Vector3Int.zero) return;
         if (ActiveFoot == null) return;
+
+        // 蓄力踢期间不响应方向移动
+        var kick = ActiveFoot.GetComponent<FootChargeKick>();
+        if (kick != null && kick.IsCharging) return;
 
         ExecuteOrganMove(ActiveFoot, dir);
     }
@@ -235,14 +239,13 @@ public class OrganController : MonoBehaviour
 
     /// <summary>
     /// 尝试沿方向推进整条链（可包含器官和场景物体）。
-    /// 链条中若包含 OrganUnit，还会检查其心距离约束。
     /// </summary>
-    private bool TryPushChain(PushableObject firstPushed, Vector3Int dir)
+    /// <param name="bypassHeart">为 true 时跳过心距离检查（蓄力踢等强推力场景）。</param>
+    private bool TryPushChain(PushableObject firstPushed, Vector3Int dir, bool bypassHeart = false)
     {
         List<PushableObject> chain = new List<PushableObject>();
         Vector3Int checkPos = firstPushed.GridPos;
 
-        // 收集链条
         while (true)
         {
             PushableObject obj = GetPushableAt(checkPos);
@@ -255,22 +258,19 @@ public class OrganController : MonoBehaviour
             if (chain.Count > 100) return false;
         }
 
-        // 最终目标格检查
         if (!mapGrid.IsWalkable(checkPos))
         {
             Log($"[OrganController] 推进链终点 {checkPos} 为墙壁。");
             return false;
         }
 
-        // 检查链中所有物体
-        foreach (var pushed in chain)
+        // 心距离检查（蓄力踢时跳过）
+        if (!bypassHeart)
         {
-            Vector3Int newPos = pushed.GridPos + dir;
-
-            // 器官需要检查心距离
-            if (pushed is OrganUnit organ)
+            foreach (var pushed in chain)
             {
-                if (!organ.IsWithinHeartRange(newPos))
+                Vector3Int newPos = pushed.GridPos + dir;
+                if (pushed is OrganUnit organ && !organ.IsWithinHeartRange(newPos))
                 {
                     Log($"[OrganController] {organ.name} 被推到 {newPos} 将超出心的范围。");
                     return false;
@@ -278,7 +278,6 @@ public class OrganController : MonoBehaviour
             }
         }
 
-        // 从后往前应用
         for (int i = chain.Count - 1; i >= 0; i--)
         {
             chain[i].ApplyPush(dir);
@@ -286,6 +285,51 @@ public class OrganController : MonoBehaviour
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// 蓄力踢：沿指定方向推动所有阻挡物体若干格，忽略心距离约束。
+    /// 踢完后自动将超距器官拉回。
+    /// </summary>
+    /// <param name="foot">发起踢的脚</param>
+    /// <param name="kickDir">踢击方向</param>
+    /// <param name="pushDistance">推动格数（由蓄力程度决定）</param>
+    /// <returns>是否踢到了任何物体</returns>
+    public bool ForceKick(OrganUnit foot, Vector3Int kickDir, int pushDistance)
+    {
+        if (pushDistance <= 0 || mapGrid == null) return false;
+
+        bool hitAnything = false;
+
+        for (int step = 0; step < pushDistance; step++)
+        {
+            // 每次向前扫描找到最近物体（上一次推动已使其位移）
+            Vector3Int scanPos = foot.GridPos + kickDir;
+            PushableObject firstInLine = null;
+
+            // 沿踢方向扫描，跳过已空出的格子
+            while (mapGrid.IsWalkable(scanPos))
+            {
+                firstInLine = GetPushableAt(scanPos);
+                if (firstInLine != null) break;
+                scanPos += kickDir;
+            }
+
+            if (firstInLine == null) break;  // 扫描到底都没找到物体
+
+            if (!TryPushChain(firstInLine, kickDir, bypassHeart: true))
+                break;  // 遇墙卡住
+
+            hitAnything = true;
+        }
+
+        if (hitAnything)
+        {
+            Log($"[OrganController] 蓄力踢! 方向 {kickDir} x{pushDistance}");
+            PullOutOfRangeOrgans();
+        }
+
+        return hitAnything;
     }
 
     // ─────────── 心拉动 ───────────

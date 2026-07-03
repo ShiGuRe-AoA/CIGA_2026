@@ -24,6 +24,9 @@ public class OrganUnit : PushableObject
     [Header("朝向")]
     [SerializeField] private Transform pointerPivot;  // 子物体偏心指针，初始朝上
 
+    [Header("蓄力")]
+    [SerializeField] private UnityEngine.UI.Image chargeBarImage;  // 蓄力条 Image，用 fillAmount 控制
+
     [Header("约束")]
     [SerializeField] private int maxHeartDistance = 8;
 
@@ -75,6 +78,31 @@ public class OrganUnit : PushableObject
     /// <summary>该器官是否配有可用摄像机</summary>
     public bool HasCamera => vcam != null;
 
+    // ─────────── 蓄力条 ───────────
+
+    /// <summary>
+    /// 设置蓄力条填充量，同时控制其父对象显隐。
+    /// 仅 Foot 类型生效，其他类型自动隐藏。
+    /// </summary>
+    public void SetChargeDisplay(float t)
+    {
+        if (chargeBarImage == null) return;
+
+        // 只有脚需要蓄力条
+        if (organType != OrganType.Foot)
+        {
+            if (chargeBarImage.transform.parent != null)
+                chargeBarImage.transform.parent.gameObject.SetActive(false);
+            return;
+        }
+
+        chargeBarImage.fillAmount = Mathf.Clamp01(t);
+        bool show = t > 0.001f;
+
+        if (chargeBarImage.transform.parent != null)
+            chargeBarImage.transform.parent.gameObject.SetActive(show);
+    }
+
     // ─────────── 生命周期 ───────────
 
     protected override void Awake()
@@ -88,7 +116,13 @@ public class OrganUnit : PushableObject
         if (vcam == null)
             vcam = GetComponentInChildren<CinemachineVirtualCamera>();
         if (pointerPivot == null)
-            pointerPivot = transform.Find("Pointer");  // 默认约定子物体名 "Pointer"
+            pointerPivot = transform.Find("Pointer");
+        if (chargeBarImage == null)
+            chargeBarImage = GetComponentInChildren<UnityEngine.UI.Image>();
+
+        // 蓄力条初始隐藏
+        if (chargeBarImage != null)
+            chargeBarImage.fillAmount = 0f;
 
         if (vcam != null)
             vcam.gameObject.SetActive(false);
@@ -142,9 +176,8 @@ public class OrganUnit : PushableObject
         pointerPivot.localRotation = Quaternion.Euler(0, 0, angle);
     }
 
-    protected override void Update()
+    private void Update()
     {
-        base.Update();
         UpdateHeartLine();
     }
 
