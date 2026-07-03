@@ -36,7 +36,12 @@ public class OrganUnit : PushableObject
     // ─────────── 运行时状态 ───────────
     private PushableObject grabbedTarget;
     private SpriteRenderer spriteRenderer;
-    private LineRenderer lineRenderer;
+    //private LineRenderer lineRenderer;
+
+    // 代替lineRenderer
+    private OrganLink heartLinkRenderer;
+    private OrganUnit heartUnit;
+
     private CinemachineVirtualCamera vcam;
     private Direction4 facingDirection = Direction4.Up;
 
@@ -44,7 +49,16 @@ public class OrganUnit : PushableObject
     public OrganType OrganType => organType;
 
     /// <summary>心的引用（由 OrganController 注入）</summary>
-    public OrganUnit HeartUnit { get; set; }
+    public OrganUnit HeartUnit
+    {
+        get => heartUnit;
+
+        set
+        {
+            heartUnit = value;
+            RefreshHeartLink();
+        }
+    }
 
     /// <summary>当前被抓取的目标（仅 Hand），可以是任何可推动物体</summary>
     public PushableObject GrabbedTarget => grabbedTarget;
@@ -111,8 +125,10 @@ public class OrganUnit : PushableObject
 
         if (spriteRenderer == null)
             spriteRenderer = GetComponentInChildren<SpriteRenderer>();
-        if (lineRenderer == null)
-            lineRenderer = GetComponentInChildren<LineRenderer>();
+        //if (lineRenderer == null)
+        //    lineRenderer = GetComponentInChildren<LineRenderer>();
+        if(heartLinkRenderer == null)
+            heartLinkRenderer = GetComponentInChildren<OrganLink>(true);    // 代替 linkRenderer
         if (vcam == null)
             vcam = GetComponentInChildren<CinemachineVirtualCamera>();
         if (pointerPivot == null)
@@ -174,11 +190,6 @@ public class OrganUnit : PushableObject
         };
 
         pointerPivot.localRotation = Quaternion.Euler(0, 0, angle);
-    }
-
-    private void Update()
-    {
-        UpdateHeartLine();
     }
 
     private void OnValidate()
@@ -303,20 +314,35 @@ public class OrganUnit : PushableObject
 
     // ─────────── 连线 ───────────
 
-    private void UpdateHeartLine()
-    {
-        if (lineRenderer == null || organType == OrganType.Heart) return;
+    //private void UpdateHeartLine()
+    //{
+    //    if (lineRenderer == null || organType == OrganType.Heart) return;
 
-        if (HeartUnit != null)
+    //    if (HeartUnit != null)
+    //    {
+    //        lineRenderer.enabled = true;
+    //        lineRenderer.SetPosition(0, VisualCenter);
+    //        lineRenderer.SetPosition(1, HeartUnit.VisualCenter);
+    //    }
+    //    else
+    //    {
+    //        lineRenderer.enabled = false;
+    //    }
+    //}
+
+    private void RefreshHeartLink()
+    {
+        if (heartLinkRenderer == null)
+            return;
+
+        // 心脏自身不连接自己。
+        if (organType == OrganType.Heart || HeartUnit == null)
         {
-            lineRenderer.enabled = true;
-            lineRenderer.SetPosition(0, VisualCenter);
-            lineRenderer.SetPosition(1, HeartUnit.VisualCenter);
+            heartLinkRenderer.Clear();
+            return;
         }
-        else
-        {
-            lineRenderer.enabled = false;
-        }
+
+        heartLinkRenderer.Bind(this, HeartUnit);
     }
 
     // ─────────── Gizmos ───────────
