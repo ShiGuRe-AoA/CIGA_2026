@@ -202,6 +202,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: 2297eb4fceb3e2f4da350bcffde927e5, type: 3}
+    - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: m_Lens.OrthographicSize
+      value: 4
+      objectReference: {fileID: 0}
     - target: {fileID: 7777678462011730302, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_LocalPosition.x
       value: -5.19
@@ -592,6 +596,9 @@ MonoBehaviour:
   grabKey: 101
   goalGridPos: {x: 0, y: 0, z: 0}
   showDebugLog: 1
+  useNewPullLogic: 1
+  newPullStepDuration: 0
+  newPullRoundInterval: 0.02
 --- !u!4 &157974038
 Transform:
   m_ObjectHideFlags: 0
@@ -684,6 +691,10 @@ PrefabInstance:
     - target: {fileID: 1502486893880408773, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Parameters.widthCurve.m_Curve.Array.data[0].outWeight
       value: 0.33333334
+      objectReference: {fileID: 0}
+    - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: m_Lens.OrthographicSize
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 7777678462011730302, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1722,6 +1733,10 @@ PrefabInstance:
       propertyPath: m_Parameters.widthCurve.m_Curve.Array.data[0].outWeight
       value: 0.33333334
       objectReference: {fileID: 0}
+    - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: m_Lens.OrthographicSize
+      value: 4
+      objectReference: {fileID: 0}
     - target: {fileID: 7777678462011730302, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_LocalPosition.x
       value: -8.62
@@ -2178,6 +2193,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: 92ff645338952c54991a70a8147a33cf, type: 3}
+    - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: m_Lens.OrthographicSize
+      value: 4
+      objectReference: {fileID: 0}
     - target: {fileID: 7777678462011730302, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_LocalPosition.x
       value: -7.68
@@ -2619,6 +2638,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: 39cc1ab4199a07c488797da2ad08abbb, type: 3}
+    - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: m_Lens.OrthographicSize
+      value: 4
+      objectReference: {fileID: 0}
     - target: {fileID: 7777678462011730302, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_LocalPosition.x
       value: -4.67
