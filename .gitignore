@@ -1,0 +1,122 @@
+# =========================
+# Unity generated files
+# =========================
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# Addressables build cache
+[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
+[Aa]ssets/[Ss]treaming[Aa]ssets/aa.meta
+[Aa]ssets/[Ss]treaming[Aa]ssets/aa/
+
+# Memory captures
+[Mm]emoryCaptures/
+
+# Recordings
+[Rr]ecordings/
+
+# Crash reports
+sysinfo.txt
+
+# =========================
+# Unity local settings
+# =========================
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity generated solution folders
+.vs/
+.vscode/
+.idea/
+.gradle/
+
+# Rider
+*.sln.DotSettings.user
+
+# =========================
+# Visual Studio / Rider / C# cache
+# =========================
+[Bb]in/
+[Oo]bj/
+TestResults/
+_ReSharper*/
+*.ReSharper
+*.DotSettings.user
+
+# =========================
+# OS generated files
+# =========================
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# Archives / packages
+# =========================
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# =========================
+# Environment / secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+*.local
+*.secret
+secrets/
+Secrets/
+
+# =========================
+# Node / frontend tools
+# 如果项目里有网页工具、小程序工具链，可以保留
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# WeChat Mini Game / 小程序临时文件
+# 可按实际导出目录调整
+# =========================
+minigame/
+webgl/
+webgl-temp/
+*.wxapkg
+
+# =========================
+# Do not ignore Unity meta files
+# =========================
+!*.meta
