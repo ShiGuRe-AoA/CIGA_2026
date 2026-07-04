@@ -31,6 +31,14 @@ public class OrganUnit : PushableObject
     [Header("约束")]
     [SerializeField] private int maxHeartDistance = 8;
 
+    [Tooltip(
+        "蓄力踢后的回弹目标距离。" +
+        "器官会回缩到距离心脏不大于该值的位置。" +
+        "该值应小于等于 Max Heart Distance。"
+    )]
+    [SerializeField, Min(1)]
+    private int kickReturnHeartDistance = 3;
+
     [Header("视觉")]
     [SerializeField] private OrganSpriteConfig spriteConfig;
 
@@ -73,6 +81,17 @@ public class OrganUnit : PushableObject
 
     /// <summary>该器官距离心的最大曼哈顿距离限制</summary>
     public int MaxHeartDistance => maxHeartDistance;
+
+    /// <summary>
+    /// 蓄力踢后器官回缩到的目标心脏距离。
+    /// 最终值不会超过最大允许距离。
+    /// </summary>
+    public int KickReturnHeartDistance =>
+        Mathf.Clamp(
+            kickReturnHeartDistance,
+            1,
+            Mathf.Max(1, maxHeartDistance)
+        );
 
     // ─────────── 摄像机 ───────────
 

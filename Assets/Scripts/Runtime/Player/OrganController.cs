@@ -549,9 +549,14 @@ public class OrganController : MonoBehaviour
     private void PullOutOfRangeOrgans_New()
     {
         List<Dictionary<OrganUnit, Vector3Int>> rounds =
-            BuildPullRounds_New();
+            BuildPullRounds_New(
+                pullToTightState: false
+            );
 
-        PlayPullRounds_New(rounds, "普通回拉");
+        PlayPullRounds_New(
+            rounds,
+            "普通回拉"
+        );
     }
 
     /// <summary>
@@ -561,18 +566,22 @@ public class OrganController : MonoBehaviour
     private void SlideBackOutOfRangeOrgans_New()
     {
         List<Dictionary<OrganUnit, Vector3Int>> rounds =
-            BuildPullRounds_New();
+            BuildPullRounds_New(
+                pullToTightState: true
+            );
 
-        PlayPullRounds_New(rounds, "蓄力踢滑回");
+        PlayPullRounds_New(
+            rounds,
+            "蓄力踢紧绷回弹"
+        );
     }
 
     /// <summary>
     /// 使用原版寻路规则构建同步逐格回缩轮次。
-    ///
-    /// 规划期间只修改临时位置和临时占用表，不修改真实 GridPos。
-    /// 每轮依然按距离心脏从远到近处理，以尽量保持原版移动结果。
+    /// pullToTightState 为 true 时，回缩到蓄力踢后的紧绷距离；
+    /// false 时只回缩到普通最大心距范围。
     /// </summary>
-    private List<Dictionary<OrganUnit, Vector3Int>> BuildPullRounds_New()
+    private List<Dictionary<OrganUnit, Vector3Int>> BuildPullRounds_New(bool pullToTightState)
     {
         var rounds =
             new List<Dictionary<OrganUnit, Vector3Int>>();
@@ -638,13 +647,10 @@ public class OrganController : MonoBehaviour
                 Vector3Int current =
                     simulatedPositions[organ];
 
-                if (IsWithinHeartRange_New(
-                        organ,
-                        current,
-                        heartPosition))
-                {
+                int targetHeartDistance = pullToTightState ? organ.KickReturnHeartDistance : organ.MaxHeartDistance;
+
+                if (IsWithinTargetHeartDistance_New(current, heartPosition, targetHeartDistance))
                     continue;
-                }
 
                 // 与原版 GetPullDirectionTowardHeart 相同的方向规则。
                 Vector3Int pullDir =
@@ -807,24 +813,20 @@ public class OrganController : MonoBehaviour
     }
 
     /// <summary>
-    /// 根据模拟位置判断器官是否仍处于心距离范围内。
+    /// 判断模拟位置是否已到达本次回缩所要求的目标心距。
     /// </summary>
-    private static bool IsWithinHeartRange_New(
-        OrganUnit organ,
+    private static bool IsWithinTargetHeartDistance_New(
         Vector3Int organPosition,
-        Vector3Int heartPosition)
+        Vector3Int heartPosition,
+        int targetDistance)
     {
-        if (organ == null ||
-            organ.OrganType == OrganType.Heart ||
-            organ.MaxHeartDistance <= 0)
-        {
+        if (targetDistance <= 0)
             return true;
-        }
 
         return ManhattanDistance_New(
             organPosition,
             heartPosition
-        ) <= organ.MaxHeartDistance;
+        ) <= targetDistance;
     }
 
     /// <summary>

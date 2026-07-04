@@ -198,6 +198,10 @@ PrefabInstance:
       propertyPath: organType
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2214636682462380900, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: kickReturnHeartDistance
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 2896980818727633481, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Sprite
       value: 
@@ -559,7 +563,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3cd75ea2bca602942a76ad75a45bec41, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveDuration: 0.08
+  moveDuration: 0.5
   moveEase: 6
   visualRenderer: {fileID: 120264429}
 --- !u!1 &157974036
@@ -691,6 +695,10 @@ PrefabInstance:
     - target: {fileID: 1502486893880408773, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Parameters.widthCurve.m_Curve.Array.data[0].outWeight
       value: 0.33333334
+      objectReference: {fileID: 0}
+    - target: {fileID: 2214636682462380900, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: kickReturnHeartDistance
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Lens.OrthographicSize
@@ -1733,6 +1741,10 @@ PrefabInstance:
       propertyPath: m_Parameters.widthCurve.m_Curve.Array.data[0].outWeight
       value: 0.33333334
       objectReference: {fileID: 0}
+    - target: {fileID: 2214636682462380900, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: kickReturnHeartDistance
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Lens.OrthographicSize
       value: 4
@@ -2189,6 +2201,10 @@ PrefabInstance:
       propertyPath: organType
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: 2214636682462380900, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: kickReturnHeartDistance
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 2896980818727633481, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Sprite
       value: 
@@ -2633,6 +2649,10 @@ PrefabInstance:
     - target: {fileID: 2214636682462380900, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: organType
       value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 2214636682462380900, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: kickReturnHeartDistance
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 2896980818727633481, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Sprite
