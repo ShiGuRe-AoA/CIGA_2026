@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Mat_SpriteWobble
+  m_Name: Mat_SpriteEffects
   m_Shader: {fileID: 4800000, guid: c0a855b56f1ac094484c5df9264ea878, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -37,6 +37,8 @@ Material:
     - _EnableExternalAlpha: 0
     - _FrameOffset: 0
     - _JitterFPS: 8
+    - _OutlineEnabled: 0
+    - _OutlineWidth: 3
     - _PixelSnap: 0
     - _UVDetailFrequency: 21
     - _UVFrequency: 8
@@ -45,4 +47,5 @@ Material:
     - _VertexStrength: 0.01
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _OutlineColor: {r: 1, g: 1, b: 0, a: 1}
   m_BuildTextureStacks: []

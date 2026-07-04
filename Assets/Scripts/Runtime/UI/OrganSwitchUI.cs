@@ -1,125 +1,248 @@
-using System;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 /// <summary>
-/// 器官类型切换 UI — 一个 OrganUnit 的 UI 插槽。
-/// 挂载在 Image/Button 所在 GameObject 上，负责左键弹出子菜单、右键收起。
+/// 器官类型切换 UI。
+///
+/// 鼠标进入插槽时开启对应器官的描边；
+/// 子菜单打开期间持续保持描边；
+/// 鼠标离开且菜单未打开时关闭描边；
+/// 关闭子菜单时关闭描边。
 /// </summary>
-public class OrganSwitchSlot : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
+public class OrganSwitchSlot :
+    MonoBehaviour,
+    IPointerClickHandler,
+    IPointerEnterHandler,
+    IPointerExitHandler
 {
+    private static readonly int OutlineEnabledId =
+        Shader.PropertyToID("_OutlineEnabled");
+
     /// <summary>
     /// 当前处于打开状态的插槽。
-    /// static 确保所有 OrganSwitchSlot 实例共享同一个引用。
+    /// 所有 OrganSwitchSlot 实例共享该引用，
+    /// 以保证同时只有一个子菜单处于打开状态。
     /// </summary>
     private static OrganSwitchSlot currentOpenSlot;
 
     [Header("绑定")]
-    [SerializeField] private OrganUnit targetOrgan;
+    [SerializeField]
+    private OrganUnit targetOrgan;
+
+    [Header("器官描边")]
+    [Tooltip(
+        "需要开启描边的器官 SpriteRenderer。" +
+        "未设置时会从 targetOrgan 子物体中自动查找。"
+    )]
+    [SerializeField]
+    private SpriteRenderer outlineRenderer;
 
     [Header("子菜单")]
-    [SerializeField] private GameObject subMenuPanel;
-    [SerializeField] private Button handButton;
-    [SerializeField] private Button eyeButton;
-    [SerializeField] private Button footButton;
+    [SerializeField]
+    private GameObject subMenuPanel;
 
-    [Header("反馈")]
-    [SerializeField] private Image slotImage;       // 可选：插槽自身背景图
-    [SerializeField] private Color hoverColor = new Color(1f, 1f, 1f, 0.9f);
-    [SerializeField] private Color normalColor = new Color(1f, 1f, 1f, 0.5f);
+    [SerializeField]
+    private Button handButton;
+
+    [SerializeField]
+    private Button eyeButton;
+
+    [SerializeField]
+    private Button footButton;
+
+    [Header("UI 反馈")]
+    [SerializeField]
+    private Image slotImage;
+
+    [SerializeField]
+    private Color hoverColor =
+        new Color(1f, 1f, 1f, 0.9f);
+
+    [SerializeField]
+    private Color normalColor =
+        new Color(1f, 1f, 1f, 0.5f);
 
     public OrganUnit TargetOrgan => targetOrgan;
 
     private OrganController controller;
+
+    private MaterialPropertyBlock propertyBlock;
+
     private bool isSubMenuOpen;
+    private bool isPointerInside;
+
+    private void Awake()
+    {
+        propertyBlock =
+            new MaterialPropertyBlock();
+
+        /*
+         * Prefer the explicitly assigned renderer.
+         * Fall back to the first SpriteRenderer under targetOrgan.
+         */
+        if (
+            outlineRenderer == null &&
+            targetOrgan != null
+        )
+        {
+            outlineRenderer =
+                targetOrgan.GetComponentInChildren<SpriteRenderer>();
+        }
+
+        SetOutline(false);
+    }
 
     private void Start()
     {
-        controller = GameBootstrap.Instance?.OrganController;
+        controller =
+            GameBootstrap.Instance?.OrganController;
 
-        // 初始隐藏子菜单
         if (subMenuPanel != null)
             subMenuPanel.SetActive(false);
 
-        // 绑定按钮事件
         if (handButton != null)
-            handButton.onClick.AddListener(() => SwitchTo(OrganType.Hand));
-        if (eyeButton != null)
-            eyeButton.onClick.AddListener(() => SwitchTo(OrganType.Eye));
-        if (footButton != null)
-            footButton.onClick.AddListener(() => SwitchTo(OrganType.Foot));
+        {
+            handButton.onClick.AddListener(
+                SwitchToHand
+            );
+        }
 
-        // 设置初始颜色
+        if (eyeButton != null)
+        {
+            eyeButton.onClick.AddListener(
+                SwitchToEye
+            );
+        }
+
+        if (footButton != null)
+        {
+            footButton.onClick.AddListener(
+                SwitchToFoot
+            );
+        }
+
         if (slotImage != null)
             slotImage.color = normalColor;
+
+        SetOutline(false);
     }
 
-    private void OnDestroy()
+    private void OnDisable()
     {
-        // 清理按钮监听
-        if (handButton != null) handButton.onClick.RemoveAllListeners();
-        if (eyeButton != null) eyeButton.onClick.RemoveAllListeners();
-        if (footButton != null) footButton.onClick.RemoveAllListeners();
+        /*
+         * Prevent an object from retaining its outline
+         * after this UI slot is disabled.
+         */
+        isPointerInside = false;
+        isSubMenuOpen = false;
 
-        // 当前被销毁的插槽正好是已打开插槽时，清空共享引用。
+        SetOutline(false);
+
         if (currentOpenSlot == this)
             currentOpenSlot = null;
     }
 
-    private void Update()
+    private void OnDestroy()
     {
-        // 右键收起子菜单
-        //if (isSubMenuOpen && Input.GetMouseButtonDown(1))
-        //{
-        //    CloseSubMenu();
-        //}
-    }
-
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        if (eventData.button == PointerEventData.InputButton.Left)
+        if (handButton != null)
         {
-            if (isSubMenuOpen)
-            {
-                // 子菜单已开，左键再次点击 → 不做特殊操作（由子按钮处理）
-                CloseSubMenu();
-            }
-            else
-            {
-                OpenSubMenu();
-            }
+            handButton.onClick.RemoveListener(
+                SwitchToHand
+            );
         }
+
+        if (eyeButton != null)
+        {
+            eyeButton.onClick.RemoveListener(
+                SwitchToEye
+            );
+        }
+
+        if (footButton != null)
+        {
+            footButton.onClick.RemoveListener(
+                SwitchToFoot
+            );
+        }
+
+        if (currentOpenSlot == this)
+            currentOpenSlot = null;
     }
 
-    public void OnPointerEnter(PointerEventData eventData)
+    public void OnPointerClick(
+        PointerEventData eventData
+    )
     {
+        if (
+            eventData.button !=
+            PointerEventData.InputButton.Left
+        )
+        {
+            return;
+        }
+
+        if (isSubMenuOpen)
+            CloseSubMenu();
+        else
+            OpenSubMenu();
+    }
+
+    public void OnPointerEnter(
+        PointerEventData eventData
+    )
+    {
+        isPointerInside = true;
+
         if (slotImage != null)
             slotImage.color = hoverColor;
+
+        SetOutline(true);
     }
 
-    public void OnPointerExit(PointerEventData eventData)
+    public void OnPointerExit(
+        PointerEventData eventData
+    )
     {
+        isPointerInside = false;
+
         if (slotImage != null)
             slotImage.color = normalColor;
-    }
 
-    // ─────────── 内部 ───────────
+        /*
+         * Leaving the slot does not remove the outline
+         * while its submenu remains open.
+         */
+        RefreshOutlineState();
+    }
 
     private void OpenSubMenu()
     {
-        if (subMenuPanel == null || targetOrgan == null)
+        if (
+            subMenuPanel == null ||
+            targetOrgan == null
+        )
+        {
             return;
+        }
 
-        // 当前存在其他已打开的插槽时，先将其关闭。
-        if (currentOpenSlot != null && currentOpenSlot != this)
+        /*
+         * Close the previously opened slot before opening this one.
+         */
+        if (
+            currentOpenSlot != null &&
+            currentOpenSlot != this
+        )
+        {
             currentOpenSlot.CloseSubMenu();
+        }
 
         subMenuPanel.SetActive(true);
-        isSubMenuOpen = true;
 
+        isSubMenuOpen = true;
         currentOpenSlot = this;
 
+        RefreshOutlineState();
         HighlightCurrentType();
     }
 
@@ -132,36 +255,157 @@ public class OrganSwitchSlot : MonoBehaviour, IPointerClickHandler, IPointerEnte
 
         if (currentOpenSlot == this)
             currentOpenSlot = null;
+
+        /*
+         * According to the requested behavior,
+         * closing the submenu disables the outline immediately.
+         *
+         * It can be enabled again by a new pointer-enter event.
+         */
+        SetOutline(false);
+    }
+
+    /// <summary>
+    /// Enables the outline when either the pointer is inside
+    /// or the submenu is open.
+    /// </summary>
+    private void RefreshOutlineState()
+    {
+        SetOutline(
+            isPointerInside ||
+            isSubMenuOpen
+        );
+    }
+
+    /// <summary>
+    /// Controls only this renderer through MaterialPropertyBlock.
+    /// Other renderers sharing the same Material are not affected.
+    /// </summary>
+    public void SetOutline(bool enabled)
+    {
+        if (
+            outlineRenderer == null ||
+            propertyBlock == null
+        )
+        {
+            return;
+        }
+
+        Material sharedMaterial =
+            outlineRenderer.sharedMaterial;
+
+        if (
+            sharedMaterial == null ||
+            !sharedMaterial.HasProperty(
+                OutlineEnabledId
+            )
+        )
+        {
+            return;
+        }
+
+        /*
+         * Always read the existing block first so other
+         * per-renderer shader values are preserved.
+         */
+        outlineRenderer.GetPropertyBlock(
+            propertyBlock
+        );
+
+        propertyBlock.SetFloat(
+            OutlineEnabledId,
+            enabled ? 1f : 0f
+        );
+
+        outlineRenderer.SetPropertyBlock(
+            propertyBlock
+        );
+    }
+
+    private void SwitchToHand()
+    {
+        SwitchTo(OrganType.Hand);
+    }
+
+    private void SwitchToEye()
+    {
+        SwitchTo(OrganType.Eye);
+    }
+
+    private void SwitchToFoot()
+    {
+        SwitchTo(OrganType.Foot);
     }
 
     private void SwitchTo(OrganType type)
     {
-        if (controller == null || targetOrgan == null) return;
+        if (
+            controller == null ||
+            targetOrgan == null
+        )
+        {
+            return;
+        }
 
-        controller.SwitchOrganType(targetOrgan, type);
+        controller.SwitchOrganType(
+            targetOrgan,
+            type
+        );
+
         CloseSubMenu();
     }
 
     private void HighlightCurrentType()
     {
-        if (targetOrgan == null) return;
+        if (targetOrgan == null)
+            return;
 
-        var current = targetOrgan.OrganType;
+        OrganType current =
+            targetOrgan.OrganType;
 
-        SetButtonAlpha(handButton, current == OrganType.Hand ? 1f : 0.5f);
-        SetButtonAlpha(eyeButton,  current == OrganType.Eye  ? 1f : 0.5f);
-        SetButtonAlpha(footButton, current == OrganType.Foot ? 1f : 0.5f);
+        SetButtonAlpha(
+            handButton,
+            current == OrganType.Hand
+                ? 1f
+                : 0.5f
+        );
+
+        SetButtonAlpha(
+            eyeButton,
+            current == OrganType.Eye
+                ? 1f
+                : 0.5f
+        );
+
+        SetButtonAlpha(
+            footButton,
+            current == OrganType.Foot
+                ? 1f
+                : 0.5f
+        );
     }
 
-    private static void SetButtonAlpha(Button btn, float alpha)
+    private static void SetButtonAlpha(
+        Button button,
+        float alpha
+    )
     {
-        if (btn == null) return;
-        var img = btn.targetGraphic;
-        if (img != null)
-        {
-            var c = img.color;
-            c.a = alpha;
-            img.color = c;
-        }
+        if (button == null)
+            return;
+
+        Graphic graphic =
+            button.targetGraphic;
+
+        if (graphic == null)
+            return;
+
+        Color color =
+            graphic.color;
+
+        color.a =
+            alpha;
+
+        graphic.color =
+            color;
     }
 }
