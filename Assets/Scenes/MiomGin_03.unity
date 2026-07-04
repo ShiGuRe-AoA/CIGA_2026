@@ -397,6 +397,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mode: 1
+  pressurePlate: 0
+  blockMovement: 0
   detectHeart: 0
   detectFoot: 0
   detectHand: 0
@@ -639,6 +641,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   tilemap: {fileID: 433558983}
+  activeOrganOutlineColor: {r: 1, g: 1, b: 1, a: 1}
   showGizmos: 1
   wallColor: {r: 1, g: 0, b: 0, a: 0.3}
   emptyColor: {r: 0, g: 1, b: 0, a: 0.06}
@@ -5548,6 +5551,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mode: 2
+  pressurePlate: 0
+  blockMovement: 0
   detectHeart: 0
   detectFoot: 0
   detectHand: 1
@@ -7039,6 +7044,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 46b855237e91856478fcdf0c4911a3b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  isActive: 0
   closedSprite: {fileID: 445159194}
   openSprite: {fileID: 895387877}
   openedTrigger: {fileID: 0}

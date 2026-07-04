@@ -2,15 +2,31 @@ Shader "Custom/SpriteEffects"
 {
     Properties
     {
-        [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
+        [PerRendererData]
+        _MainTex (
+            "Sprite Texture",
+            2D
+        ) = "white" {}
 
-        _Color ("Tint", Color) = (1, 1, 1, 1)
+        _Color (
+            "Tint",
+            Color
+        ) = (1, 1, 1, 1)
 
         [Header(Animation)]
-        _JitterFPS ("Jitter FPS", Range(1, 20)) = 8
-        _FrameOffset ("Frame Offset", Float) = 0
+
+        _JitterFPS (
+            "Jitter FPS",
+            Range(1, 20)
+        ) = 8
+
+        _FrameOffset (
+            "Frame Offset",
+            Float
+        ) = 0
 
         [Header(UV Distortion)]
+
         _UVStrength (
             "UV Distortion Strength",
             Range(0, 0.02)
@@ -27,6 +43,7 @@ Shader "Custom/SpriteEffects"
         ) = 21
 
         [Header(Vertex Distortion)]
+
         _VertexStrength (
             "Vertex Distortion Strength",
             Range(0, 0.1)
@@ -38,14 +55,26 @@ Shader "Custom/SpriteEffects"
         ) = 3
 
         [Header(Outline)]
+
         [Toggle]
-        _OutlineEnabled (
-            "Outline Enabled",
+        _ActiveOutlineEnabled (
+            "Active Outline Enabled",
             Float
         ) = 0
 
-        _OutlineColor (
-            "Outline Color",
+        _ActiveOutlineColor (
+            "Active Outline Color",
+            Color
+        ) = (0, 1, 0, 1)
+
+        [Toggle]
+        _HoverOutlineEnabled (
+            "Hover Outline Enabled",
+            Float
+        ) = 0
+
+        _HoverOutlineColor (
+            "Hover Outline Color",
             Color
         ) = (1, 1, 0, 1)
 
@@ -55,6 +84,7 @@ Shader "Custom/SpriteEffects"
         ) = 2
 
         [Header(Alpha)]
+
         _AlphaClip (
             "Alpha Clip",
             Range(0, 1)
@@ -94,7 +124,7 @@ Shader "Custom/SpriteEffects"
         Lighting Off
         ZWrite Off
 
-        // The shader outputs premultiplied-alpha colors.
+        // Premultiplied alpha.
         Blend One OneMinusSrcAlpha
 
         Pass
@@ -142,13 +172,16 @@ Shader "Custom/SpriteEffects"
             float _VertexStrength;
             float _VertexFrequency;
 
-            float _OutlineEnabled;
-            fixed4 _OutlineColor;
-            float _OutlineWidth;
+            float _ActiveOutlineEnabled;
+            fixed4 _ActiveOutlineColor;
 
+            float _HoverOutlineEnabled;
+            fixed4 _HoverOutlineColor;
+
+            float _OutlineWidth;
             float _AlphaClip;
 
-            // Returns a stable pseudo-random value in [0, 1].
+            // Stable pseudo-random value in [0, 1].
             float Hash11(float value)
             {
                 return frac(
@@ -157,18 +190,21 @@ Shader "Custom/SpriteEffects"
                 );
             }
 
-            // Returns a stable pseudo-random 2D value in [-1, 1].
+            // Stable pseudo-random 2D value in [-1, 1].
             float2 Hash21(float value)
             {
                 float2 result;
 
-                result.x = Hash11(value + 17.13);
-                result.y = Hash11(value + 83.71);
+                result.x =
+                    Hash11(value + 17.13);
+
+                result.y =
+                    Hash11(value + 83.71);
 
                 return result * 2.0 - 1.0;
             }
 
-            // The current animation frame is always 0, 1 or 2.
+            // Returns 0, 1 or 2.
             float GetAnimationFrame()
             {
                 float rawFrame = floor(
@@ -177,13 +213,14 @@ Shader "Custom/SpriteEffects"
                     _FrameOffset
                 );
 
-                return fmod(rawFrame, 3.0);
+                return fmod(
+                    rawFrame,
+                    3.0
+                );
             }
 
             /*
              * Generates a discrete three-frame UV deformation.
-             * Horizontal displacement mainly depends on Y,
-             * while vertical displacement mainly depends on X.
              */
             float2 GetUVDistortion(
                 float2 uv,
@@ -199,7 +236,10 @@ Shader "Custom/SpriteEffects"
                     6.2831853;
 
                 float2 phaseB =
-                    Hash21(frameSeed + 19.37) *
+                    Hash21(
+                        frameSeed +
+                        19.37
+                    ) *
                     6.2831853;
 
                 float horizontalWave = sin(
@@ -242,13 +282,12 @@ Shader "Custom/SpriteEffects"
                     verticalWave * 0.7 +
                     verticalDetail * 0.3;
 
-                return distortion * _UVStrength;
+                return distortion *
+                       _UVStrength;
             }
 
             /*
              * Applies object-space vertex deformation.
-             * A normal four-vertex Sprite mainly shows skewing;
-             * a subdivided mesh produces richer silhouette motion.
              */
             float2 GetVertexDistortion(
                 float2 positionOS,
@@ -278,19 +317,22 @@ Shader "Custom/SpriteEffects"
                 );
 
                 float2 localWave =
-                    float2(waveX, waveY);
+                    float2(
+                        waveX,
+                        waveY
+                    );
 
-                // Keep the center steadier than the outer region.
                 float2 centerDistance =
                     abs(uv - 0.5) *
                     2.0;
 
-                float edgeWeight = saturate(
-                    max(
-                        centerDistance.x,
-                        centerDistance.y
-                    )
-                );
+                float edgeWeight =
+                    saturate(
+                        max(
+                            centerDistance.x,
+                            centerDistance.y
+                        )
+                    );
 
                 float2 distortion =
                     localWave * 0.65 +
@@ -323,7 +365,9 @@ Shader "Custom/SpriteEffects"
                     );
 
                 output.vertex =
-                    UnityObjectToClipPos(positionOS);
+                    UnityObjectToClipPos(
+                        positionOS
+                    );
 
                 output.uv =
                     input.uv;
@@ -334,37 +378,49 @@ Shader "Custom/SpriteEffects"
 
                 #ifdef PIXELSNAP_ON
                     output.vertex =
-                        UnityPixelSnap(output.vertex);
+                        UnityPixelSnap(
+                            output.vertex
+                        );
                 #endif
 
                 return output;
             }
 
-            fixed4 SampleSpriteTexture(float2 uv)
+            fixed4 SampleSpriteTexture(
+                float2 uv
+            )
             {
                 fixed4 color =
-                    tex2D(_MainTex, uv);
+                    tex2D(
+                        _MainTex,
+                        uv
+                    );
 
                 #if ETC1_EXTERNAL_ALPHA
                     fixed4 alphaColor =
-                        tex2D(_AlphaTex, uv);
+                        tex2D(
+                            _AlphaTex,
+                            uv
+                        );
 
-                    color.a = lerp(
-                        color.a,
-                        alphaColor.r,
-                        _EnableExternalAlpha
-                    );
+                    color.a =
+                        lerp(
+                            color.a,
+                            alphaColor.r,
+                            _EnableExternalAlpha
+                        );
                 #endif
 
                 return color;
             }
 
             /*
-             * Clamp UVs to the texture bounds.
-             * This prevents the wobble and outline samples
-             * from wrapping to the opposite side of the texture.
+             * Prevents sampling from wrapping across
+             * the opposite side of the texture.
              */
-            float2 ClampTextureUV(float2 uv)
+            float2 ClampTextureUV(
+                float2 uv
+            )
             {
                 float2 halfTexel =
                     _MainTex_TexelSize.xy *
@@ -377,9 +433,6 @@ Shader "Custom/SpriteEffects"
                 );
             }
 
-            /*
-             * Samples alpha at one neighboring UV position.
-             */
             float SampleNeighbourAlpha(
                 float2 uv,
                 float2 offset
@@ -390,6 +443,35 @@ Shader "Custom/SpriteEffects"
                         uv + offset
                     )
                 ).a;
+            }
+
+            /*
+             * Returns whether any outline source is enabled.
+             */
+            float GetOutlineEnabled()
+            {
+                return max(
+                    _ActiveOutlineEnabled,
+                    _HoverOutlineEnabled
+                );
+            }
+
+            /*
+             * Hover outline has priority over active outline.
+             */
+            fixed4 GetOutlineColor()
+            {
+                float hoverWeight =
+                    step(
+                        0.5,
+                        _HoverOutlineEnabled
+                    );
+
+                return lerp(
+                    _ActiveOutlineColor,
+                    _HoverOutlineColor,
+                    hoverWeight
+                );
             }
 
             fixed4 frag(v2f input) : SV_Target
@@ -405,15 +487,14 @@ Shader "Custom/SpriteEffects"
                     );
 
                 distortedUV =
-                    ClampTextureUV(distortedUV);
+                    ClampTextureUV(
+                        distortedUV
+                    );
 
-                /*
-                 * Keep the raw texture alpha separately.
-                 * Outline shape detection should use texture alpha,
-                 * not the already-tinted body alpha.
-                 */
                 fixed4 textureColor =
-                    SampleSpriteTexture(distortedUV);
+                    SampleSpriteTexture(
+                        distortedUV
+                    );
 
                 fixed4 bodyColor =
                     textureColor *
@@ -422,50 +503,72 @@ Shader "Custom/SpriteEffects"
                 float bodyAlpha =
                     bodyColor.a;
 
+                float outlineEnabled =
+                    GetOutlineEnabled();
+
+                fixed4 outlineColor =
+                    GetOutlineColor();
+
                 float outlineAlpha = 0.0;
 
-                if (_OutlineEnabled > 0.5)
+                if (outlineEnabled > 0.5)
                 {
                     float2 offset =
                         _MainTex_TexelSize.xy *
                         _OutlineWidth;
 
-                    float neighbourAlpha = 0.0;
+                    float neighbourAlpha =
+                        0.0;
 
-                    // Horizontal and vertical directions.
+                    // Right
                     neighbourAlpha = max(
                         neighbourAlpha,
                         SampleNeighbourAlpha(
                             distortedUV,
-                            float2(offset.x, 0.0)
+                            float2(
+                                offset.x,
+                                0.0
+                            )
                         )
                     );
 
+                    // Left
                     neighbourAlpha = max(
                         neighbourAlpha,
                         SampleNeighbourAlpha(
                             distortedUV,
-                            float2(-offset.x, 0.0)
+                            float2(
+                                -offset.x,
+                                0.0
+                            )
                         )
                     );
 
+                    // Up
                     neighbourAlpha = max(
                         neighbourAlpha,
                         SampleNeighbourAlpha(
                             distortedUV,
-                            float2(0.0, offset.y)
+                            float2(
+                                0.0,
+                                offset.y
+                            )
                         )
                     );
 
+                    // Down
                     neighbourAlpha = max(
                         neighbourAlpha,
                         SampleNeighbourAlpha(
                             distortedUV,
-                            float2(0.0, -offset.y)
+                            float2(
+                                0.0,
+                                -offset.y
+                            )
                         )
                     );
 
-                    // Diagonal directions.
+                    // Top-right
                     neighbourAlpha = max(
                         neighbourAlpha,
                         SampleNeighbourAlpha(
@@ -477,6 +580,7 @@ Shader "Custom/SpriteEffects"
                         )
                     );
 
+                    // Bottom-right
                     neighbourAlpha = max(
                         neighbourAlpha,
                         SampleNeighbourAlpha(
@@ -488,6 +592,7 @@ Shader "Custom/SpriteEffects"
                         )
                     );
 
+                    // Top-left
                     neighbourAlpha = max(
                         neighbourAlpha,
                         SampleNeighbourAlpha(
@@ -499,6 +604,7 @@ Shader "Custom/SpriteEffects"
                         )
                     );
 
+                    // Bottom-left
                     neighbourAlpha = max(
                         neighbourAlpha,
                         SampleNeighbourAlpha(
@@ -511,23 +617,20 @@ Shader "Custom/SpriteEffects"
                     );
 
                     /*
-                     * Keep only neighboring opaque pixels that extend
-                     * beyond the current Sprite body.
+                     * Keep only the alpha extending outside
+                     * the current body.
                      */
-                    outlineAlpha = saturate(
-                        neighbourAlpha -
-                        textureColor.a
-                    );
+                    outlineAlpha =
+                        saturate(
+                            neighbourAlpha -
+                            textureColor.a
+                        );
 
                     outlineAlpha *=
-                        _OutlineColor.a *
+                        outlineColor.a *
                         input.color.a;
                 }
 
-                /*
-                 * Prevent the outline from covering semi-transparent
-                 * pixels belonging to the body.
-                 */
                 float visibleOutlineAlpha =
                     outlineAlpha *
                     (1.0 - bodyAlpha);
@@ -538,16 +641,10 @@ Shader "Custom/SpriteEffects"
                     bodyAlpha +
                     visibleOutlineAlpha;
 
-                /*
-                 * Premultiplied-alpha output:
-                 *
-                 * body RGB      ¡Á body alpha
-                 * outline RGB   ¡Á visible outline alpha
-                 */
                 finalColor.rgb =
                     bodyColor.rgb *
                     bodyAlpha +
-                    _OutlineColor.rgb *
+                    outlineColor.rgb *
                     visibleOutlineAlpha;
 
                 clip(

@@ -33,12 +33,14 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _ActiveOutlineEnabled: 0
     - _AlphaClip: 0.001
     - _EnableExternalAlpha: 0
     - _FrameOffset: 0
+    - _HoverOutlineEnabled: 0
     - _JitterFPS: 8
     - _OutlineEnabled: 0
-    - _OutlineWidth: 3
+    - _OutlineWidth: 5
     - _PixelSnap: 0
     - _UVDetailFrequency: 21
     - _UVFrequency: 8
@@ -46,6 +48,8 @@ Material:
     - _VertexFrequency: 3
     - _VertexStrength: 0.01
     m_Colors:
+    - _ActiveOutlineColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _HoverOutlineColor: {r: 1, g: 1, b: 0, a: 1}
     - _OutlineColor: {r: 1, g: 1, b: 0, a: 1}
   m_BuildTextureStacks: []
