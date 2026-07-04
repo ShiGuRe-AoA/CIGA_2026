@@ -1,5 +1,21 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-1369442712637426462
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c019df789fdaba84e8765692b8376b96, type: 3}
+  m_Name: BlurFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  settings:
+    material: {fileID: 2100000, guid: 9a800953e0b0a6b4c8856d1b64205b12, type: 2}
+    passEvent: 600
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15,8 +31,12 @@ MonoBehaviour:
   debugShaders:
     debugReplacementPS: {fileID: 4800000, guid: cf852408f2e174538bcd9b7fda1c5ae7, type: 3}
     hdrDebugViewPS: {fileID: 4800000, guid: 573620ae32aec764abd4d728906d2587, type: 3}
-  m_RendererFeatures: []
-  m_RendererFeatureMap: 
+  m_RendererFeatures:
+  - {fileID: 7253635406980056552}
+  - {fileID: -1369442712637426462}
+  - {fileID: 829051226220166826}
+  - {fileID: 171026891684054865}
+  m_RendererFeatureMap: e8053ea3f816aa64e2b4ffc41bc3feecaa7e749fb261810b5107de450d9c5f02
   m_UseNativeRenderPass: 0
   m_LayerMask:
     serializedVersion: 2
@@ -64,3 +84,51 @@ MonoBehaviour:
   m_DefaultLitMaterial: {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
   m_DefaultUnlitMaterial: {fileID: 2100000, guid: 9dfc825aed78fcd4ba02077103263b40, type: 2}
   m_DefaultMaskMaterial: {fileID: 2100000, guid: 15d0c3709176029428a0da2f8cecf0b5, type: 2}
+--- !u!114 &171026891684054865
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c019df789fdaba84e8765692b8376b96, type: 3}
+  m_Name: CRTFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  settings:
+    material: {fileID: 2100000, guid: b9c3ba298c834bf42a08779b2c3794ec, type: 2}
+    passEvent: 600
+--- !u!114 &829051226220166826
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c019df789fdaba84e8765692b8376b96, type: 3}
+  m_Name: PosterizeFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  settings:
+    material: {fileID: 2100000, guid: cffaed5f52ee45a40be5472fb0ca8fb5, type: 2}
+    passEvent: 600
+--- !u!114 &7253635406980056552
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c019df789fdaba84e8765692b8376b96, type: 3}
+  m_Name: ColorAdjustmentFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  settings:
+    material: {fileID: 2100000, guid: 7d27c71dd7490bf4196d34ff6b950775, type: 2}
+    passEvent: 600
