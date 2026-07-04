@@ -5920,9 +5920,41 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1108606305}
     m_Modifications:
+    - target: {fileID: 792348949298782091, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1136000009416731030, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 1051d3a9e4f4bb54a82e8ed190354155, type: 3}
+    - target: {fileID: 1954242736513828367, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 4343303b91648da468ec978a54b5cee7, type: 3}
+    - target: {fileID: 2359689868498081090, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 76.52
+      objectReference: {fileID: 0}
+    - target: {fileID: 3222703350139677014, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3608551624979397755, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3723985338720329833, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Name
       value: OrganSwitcher_D
+      objectReference: {fileID: 0}
+    - target: {fileID: 4241879092648403595, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 66feb7ca377d66a47a3b45c0b920c362, type: 3}
+    - target: {fileID: 4485987089405177925, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Pivot.x
@@ -5950,11 +5982,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 50
+      value: 60
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 50
+      value: 70
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6004,10 +6036,86 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7397843365873657629, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: targetOrgan
       value: 
       objectReference: {fileID: 2010501942}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: emptyUISprite
+      value: 
+      objectReference: {fileID: 21300000, guid: d52e2ee1663bfd14b885b95468289d81, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: targetOrganRenderer
+      value: 
+      objectReference: {fileID: 944090010}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.size
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[0].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 3b01d08aaf8501f438a9823d82edb259, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[1].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: dbdae13db29d41f4289e7c35abba3727, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[2].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 44863cb9e02f51e4c8c5f355426cdd6a, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[3].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 2d8307e2b0906a14fa6aa497d812bbe8, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[4].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: f19b0b43b26d42a4e8d732a8760c0202, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[5].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: ab6b1517159de1748b7fe60c5de3d99f, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[0].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 4a59ae8275dfa9244a7793be3a98dcc2, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[1].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 1dcb86b5b636b304387b050d0004c59a, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[2].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: fa0d15e5ba703ed4a97bd70fbc4258b3, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[3].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: fab2f3deba4f87245b263fd8ad4cb534, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[4].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: c9a885b03957eeb4880be6fa0fd394b2, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[5].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 011e5ce1d1666474c96d9c4047eb1d0b, type: 3}
+    - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: d52e2ee1663bfd14b885b95468289d81, type: 3}
+    - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_UseSpriteMesh
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -6150,7 +6258,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -9.053036, y: -19.542892, z: -10}
+  m_LocalPosition: {x: -7.393036, y: -17.742893, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -7767,6 +7875,11 @@ MonoBehaviour:
   spriteA: {fileID: 21300000, guid: e4a120d03af88374ea50cbd3548643fe, type: 3}
   spriteB: {fileID: 21300000, guid: 49d74668250b1034785f4872bab8f62e, type: 3}
   showDebugLog: 1
+--- !u!212 &795611100 stripped
+SpriteRenderer:
+  m_CorrespondingSourceObject: {fileID: 2896980818727633481, guid: c094fabc31cd57f448999922174903ca, type: 3}
+  m_PrefabInstance: {fileID: 1084686681}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &804475910
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8859,6 +8972,11 @@ MonoBehaviour:
   taperSampleCount: 12
   capVertices: 2
   cornerVertices: 2
+--- !u!212 &944090010 stripped
+SpriteRenderer:
+  m_CorrespondingSourceObject: {fileID: 2896980818727633481, guid: c094fabc31cd57f448999922174903ca, type: 3}
+  m_PrefabInstance: {fileID: 2010501935}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &947439088
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10224,7 +10342,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 67.628296, y: 0}
+  m_AnchoredPosition: {x: 89, y: 0}
   m_SizeDelta: {x: 135.25671, y: 450}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1108606306
@@ -11764,9 +11882,41 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1108606305}
     m_Modifications:
+    - target: {fileID: 792348949298782091, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1136000009416731030, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 1051d3a9e4f4bb54a82e8ed190354155, type: 3}
+    - target: {fileID: 1954242736513828367, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 4343303b91648da468ec978a54b5cee7, type: 3}
+    - target: {fileID: 2359689868498081090, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 76.52
+      objectReference: {fileID: 0}
+    - target: {fileID: 3222703350139677014, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3608551624979397755, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3723985338720329833, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Name
       value: OrganSwitcher_C
+      objectReference: {fileID: 0}
+    - target: {fileID: 4241879092648403595, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 66feb7ca377d66a47a3b45c0b920c362, type: 3}
+    - target: {fileID: 4485987089405177925, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Pivot.x
@@ -11794,11 +11944,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 50
+      value: 60
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 50
+      value: 70
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_LocalPosition.x
@@ -11848,10 +11998,82 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7397843365873657629, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: targetOrgan
       value: 
       objectReference: {fileID: 1084686688}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: emptyUISprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 03ead09c0e21edc4bbef86ddbf74f993, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: targetOrganRenderer
+      value: 
+      objectReference: {fileID: 795611100}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.size
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[0].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 8004885a2716c9e45af7738579e55c06, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[1].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 5c8dfbee311898942921c7d3042b15ed, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[2].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 93867d3bb2c683e4f856f077b4dd1ee2, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[3].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 0ab8e509d8ceaf942b0eb80b0b434814, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[4].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 8d1d2660782ec4c4698b80198199d698, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[5].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 1863f79d9a9c4074e9d9084ad5b642eb, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[0].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 4a59ae8275dfa9244a7793be3a98dcc2, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[1].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 1dcb86b5b636b304387b050d0004c59a, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[2].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: fa0d15e5ba703ed4a97bd70fbc4258b3, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[3].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: fab2f3deba4f87245b263fd8ad4cb534, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[4].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: c9a885b03957eeb4880be6fa0fd394b2, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[5].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 011e5ce1d1666474c96d9c4047eb1d0b, type: 3}
+    - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 03ead09c0e21edc4bbef86ddbf74f993, type: 3}
+    - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -12486,6 +12708,11 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: 2430553699826936216, guid: 9a1e585f21dd1064bb7d6ec9c3ab405f, type: 3}
   m_PrefabInstance: {fileID: 1610111255}
+  m_PrefabAsset: {fileID: 0}
+--- !u!212 &1643786798 stripped
+SpriteRenderer:
+  m_CorrespondingSourceObject: {fileID: 2896980818727633481, guid: c094fabc31cd57f448999922174903ca, type: 3}
+  m_PrefabInstance: {fileID: 169908901}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1648269059
 PrefabInstance:
@@ -15978,9 +16205,45 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1108606305}
     m_Modifications:
+    - target: {fileID: 329446853378685833, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 792348949298782091, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1136000009416731030, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 1051d3a9e4f4bb54a82e8ed190354155, type: 3}
+    - target: {fileID: 1954242736513828367, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 4343303b91648da468ec978a54b5cee7, type: 3}
+    - target: {fileID: 2359689868498081090, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 76.52
+      objectReference: {fileID: 0}
+    - target: {fileID: 3222703350139677014, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3608551624979397755, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3723985338720329833, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Name
       value: OrganSwitcher_A
+      objectReference: {fileID: 0}
+    - target: {fileID: 4241879092648403595, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 66feb7ca377d66a47a3b45c0b920c362, type: 3}
+    - target: {fileID: 4485987089405177925, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Pivot.x
@@ -16008,11 +16271,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 50
+      value: 60
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 50
+      value: 70
       objectReference: {fileID: 0}
     - target: {fileID: 5834106388505274473, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_LocalPosition.x
@@ -16062,10 +16325,82 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7397843365873657629, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: targetOrgan
       value: 
       objectReference: {fileID: 456100017}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: emptyUISprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 4a3fca0b0ac120a498e0d948ac73fb31, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: targetOrganRenderer
+      value: 
+      objectReference: {fileID: 1643786798}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.size
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[0].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 8469ed299dc560f40b25ef83390fe1f3, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[1].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: c7b78b7db831aae4389c15897f4b5361, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[2].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: ffde0fab8313af840ae594551c2c9a15, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[3].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 9ad38f006c662f145931bfcdeb061631, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[4].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: d0d29290fca321645b2ec79a781eec0e, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[5].uiSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 94b099382aa26f846a68e432d9b0f3cd, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[0].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 4a59ae8275dfa9244a7793be3a98dcc2, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[1].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 1dcb86b5b636b304387b050d0004c59a, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[2].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: fa0d15e5ba703ed4a97bd70fbc4258b3, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[3].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: fab2f3deba4f87245b263fd8ad4cb534, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[4].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: c9a885b03957eeb4880be6fa0fd394b2, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: organSpriteUIBindings.Array.data[5].organSprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 011e5ce1d1666474c96d9c4047eb1d0b, type: 3}
+    - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: c7b78b7db831aae4389c15897f4b5361, type: 3}
+    - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
