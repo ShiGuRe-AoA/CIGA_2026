@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
@@ -45,6 +46,9 @@ public class OrganController : MonoBehaviour
     private int activeFootIndex;
     private int activeEyeIndex;
     private bool handsGrabbing;
+    private OrganUnit activeCameraOrgan;
+    private OrganUnit pendingOldCameraOrgan;
+    private Coroutine cameraSwitchRoutine;
 
     // O(1) 位置索引，替代原 List<PushableObject> 的全表扫描。
     private readonly GridPositionIndex posIndex = new GridPositionIndex();
@@ -83,6 +87,12 @@ public class OrganController : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (cameraSwitchRoutine != null)
+        {
+            StopCoroutine(cameraSwitchRoutine);
+            cameraSwitchRoutine = null;
+        }
+
         pullBackSequence?.Kill(complete: false);
         pullBackSequence = null;
 
@@ -213,10 +223,12 @@ public class OrganController : MonoBehaviour
         foreach (var organ in organs)
             organ.SetCameraActive(false);
 
+        activeCameraOrgan = null;
+
         if (eyeOrgans.Count > 0)
         {
             activeEyeIndex = 0;
-            eyeOrgans[0].SetCameraActive(true);
+            SwitchCameraTo(eyeOrgans[0]);
 
             Log(
                 $"[OrganController] 摄像机: 眼球 " +
@@ -225,7 +237,7 @@ public class OrganController : MonoBehaviour
         }
         else if (heartUnit != null && heartUnit.HasCamera)
         {
-            heartUnit.SetCameraActive(true);
+            SwitchCameraTo(heartUnit);
             Log("[OrganController] 摄像机: 心（无眼球）");
         }
     }
@@ -235,23 +247,75 @@ public class OrganController : MonoBehaviour
     /// </summary>
     private void ReevaluateCamera()
     {
-        // 关闭所有摄像机
-        foreach (var organ in organs)
-            organ.SetCameraActive(false);
-
         if (eyeOrgans.Count > 0)
         {
             // 矫正索引后激活第一个可用的眼
             if (activeEyeIndex >= eyeOrgans.Count)
                 activeEyeIndex = 0;
-            eyeOrgans[activeEyeIndex].SetCameraActive(true);
+            SwitchCameraTo(eyeOrgans[activeEyeIndex]);
         }
         else if (heartUnit != null && heartUnit.HasCamera)
         {
-            heartUnit.SetCameraActive(true);
+            SwitchCameraTo(heartUnit);
+        }
+        else
+        {
+            SwitchCameraTo(null);
         }
 
         RefreshActiveOrganRegistrations();
+    }
+
+    /// <summary>
+    /// 切换当前视野摄像机。
+    /// 顺序为：启用新摄像机物体 → 等本帧完成切换 → 关闭旧摄像机物体。
+    /// </summary>
+    private void SwitchCameraTo(OrganUnit newCameraOrgan)
+    {
+        if (activeCameraOrgan == newCameraOrgan)
+        {
+            newCameraOrgan?.SetCameraActive(true);
+            return;
+        }
+
+        OrganUnit oldCameraOrgan = activeCameraOrgan;
+        activeCameraOrgan = newCameraOrgan;
+
+        if (cameraSwitchRoutine != null)
+        {
+            StopCoroutine(cameraSwitchRoutine);
+            cameraSwitchRoutine = null;
+
+            if (pendingOldCameraOrgan != null &&
+                pendingOldCameraOrgan != newCameraOrgan &&
+                pendingOldCameraOrgan != oldCameraOrgan)
+            {
+                pendingOldCameraOrgan.SetCameraActive(false);
+            }
+        }
+
+        pendingOldCameraOrgan = oldCameraOrgan;
+        newCameraOrgan?.SetCameraActive(true);
+
+        cameraSwitchRoutine = StartCoroutine(
+            DisableOldCameraAfterSwitch(oldCameraOrgan, newCameraOrgan)
+        );
+    }
+
+    private IEnumerator DisableOldCameraAfterSwitch(
+        OrganUnit oldCameraOrgan,
+        OrganUnit newCameraOrgan)
+    {
+        yield return new WaitForEndOfFrame();
+
+        if (oldCameraOrgan != null &&
+            oldCameraOrgan != newCameraOrgan)
+        {
+            oldCameraOrgan.SetCameraActive(false);
+        }
+
+        cameraSwitchRoutine = null;
+        pendingOldCameraOrgan = null;
     }
 
     /// <summary>
@@ -356,14 +420,13 @@ public class OrganController : MonoBehaviour
             return;
 
         OrganUnit oldEye = eyeOrgans[activeEyeIndex];
-        oldEye.SetCameraActive(false);
         SetOrganActive(oldEye, false);
 
         activeEyeIndex =
             (activeEyeIndex + 1) % eyeOrgans.Count;
 
         OrganUnit newEye = eyeOrgans[activeEyeIndex];
-        newEye.SetCameraActive(true);
+        SwitchCameraTo(newEye);
         SetOrganActive(newEye, true);
 
         Log(

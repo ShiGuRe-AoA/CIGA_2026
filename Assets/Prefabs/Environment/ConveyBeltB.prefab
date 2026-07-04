@@ -151,8 +151,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3bd76e90ab97e0e42980ac01f6d1ae8d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  isActive: 0
   pushDirection: 0
   visualSprite: {fileID: 3820430891164024414}
+  beltAnimator: {fileID: 4430974658559644230}
+  initiallyActive: 1
   pushInterval: 0.7
   initialDelay: 0
   pushDuration: 0

@@ -119,6 +119,8 @@ public class PitMechanism : Mechanism
     /// </summary>
     public override void OnTriggered(Trigger source)
     {
+        base.OnTriggered(source);
+
         if (!fillWhenTriggered)
             return;
 

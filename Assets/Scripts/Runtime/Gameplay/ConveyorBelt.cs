@@ -6,7 +6,7 @@ using UnityEngine;
 ///
 /// 同一帧内每个物体只被推一次：多个连续放置的传动带不会在同周期内反复推动同一物体。
 /// </summary>
-public class ConveyorBelt : MonoBehaviour
+public class ConveyorBelt : Mechanism
 {
     [Header("方向")]
     [SerializeField] private Direction4 pushDirection = Direction4.Right;
@@ -15,7 +15,11 @@ public class ConveyorBelt : MonoBehaviour
     [Tooltip("随方向旋转的子物体（初始朝上）。")]
     [SerializeField] private Transform visualSprite;
 
+    [Tooltip("传送带滚动动画机。内部只需要一个循环动画。")]
+    [SerializeField] private Animator beltAnimator;
+
     [Header("节奏")]
+    [SerializeField] private bool initiallyActive = true;
     [SerializeField, Min(0.1f)] private float pushInterval = 1.5f;
     [SerializeField, Min(0f)]    private float initialDelay  = 0f;
 
@@ -45,11 +49,14 @@ public class ConveyorBelt : MonoBehaviour
         }
 
         timer = initialDelay;
+        isActive = initiallyActive;
+        RefreshAnimatorState();
         SyncVisualRotation();
     }
 
     private void Update()
     {
+        if (!isActive) return;
         if (controller == null || grid == null) return;
 
         myCell = grid.WorldToCell(transform.position);
@@ -66,6 +73,55 @@ public class ConveyorBelt : MonoBehaviour
 
         timer = pushInterval;
         TryPush();
+    }
+
+    // ─────────── Mechanism 入口 ───────────
+
+    /// <summary>
+    /// 每次触发时在启动/关闭之间切换。
+    /// </summary>
+    public override void OnTriggered(Trigger source)
+    {
+        SetActive(!isActive);
+    }
+
+    /// <summary>
+    /// 压力板释放时关闭传动带。
+    /// </summary>
+    public override void OnClosed(Trigger source)
+    {
+        SetActive(false);
+    }
+
+    /// <summary>开启传动带。</summary>
+    public void Open()
+    {
+        SetActive(true);
+    }
+
+    /// <summary>关闭传动带。</summary>
+    public void Close()
+    {
+        SetActive(false);
+    }
+
+    private void SetActive(bool active)
+    {
+        if (isActive == active)
+            return;
+
+        isActive = active;
+        timer = pushInterval;
+        RefreshAnimatorState();
+    }
+
+    private void RefreshAnimatorState()
+    {
+        if (beltAnimator == null)
+            return;
+
+        beltAnimator.enabled = true;
+        beltAnimator.speed = isActive ? 1f : 0f;
     }
 
     // ─────────── 推动逻辑 ───────────

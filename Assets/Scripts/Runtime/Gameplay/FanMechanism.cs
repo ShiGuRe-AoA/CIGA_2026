@@ -38,11 +38,7 @@ public class FanMechanism : Mechanism
     private OrganController controller;
     private MapGrid grid;
     private Vector3Int gridPos;
-    private bool isActive;
     private float timer;
-
-    /// <summary>当前是否开启吹风。</summary>
-    public bool IsActive => isActive;
 
     /// <summary>吹风机所在格子。</summary>
     public Vector3Int GridPos => gridPos;
@@ -59,10 +55,9 @@ public class FanMechanism : Mechanism
             transform.position = grid.CellToWorld(gridPos);
         }
 
-        isActive = initiallyActive;
         timer = initialDelay;
+        SetActive(initiallyActive);
 
-        RefreshVisual();
         SyncVisualRotation();
     }
 
@@ -84,7 +79,6 @@ public class FanMechanism : Mechanism
     /// </summary>
     public override void OnTriggered(Trigger source)
     {
-        base.OnTriggered(source);
         Toggle();
     }
 

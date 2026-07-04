@@ -158,7 +158,7 @@ public class OrganUnit : PushableObject
     public void SetCameraActive(bool active)
     {
         if (vcam == null) return;
-        if (organType != OrganType.Eye && organType != OrganType.Heart) return;
+        if (active && organType != OrganType.Eye && organType != OrganType.Heart) return;
         vcam.gameObject.SetActive(active);
     }
 
@@ -205,7 +205,7 @@ public class OrganUnit : PushableObject
         if(heartLinkRenderer == null)
             heartLinkRenderer = GetComponentInChildren<OrganLink>(true);    // 代替 linkRenderer
         if (vcam == null)
-            vcam = GetComponentInChildren<CinemachineVirtualCamera>();
+            vcam = GetComponentInChildren<CinemachineVirtualCamera>(true);
         if (pointerPivot == null)
             pointerPivot = transform.Find("Pointer");
         if (chargeBarImage == null)

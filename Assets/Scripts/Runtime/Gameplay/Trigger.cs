@@ -51,11 +51,19 @@ public class Trigger : MonoBehaviour
     [Header("机关列表")]
     [SerializeField] private List<Mechanism> mechanisms;
 
+    [Header("触发动画")]
+    [Tooltip("可选。触发器每次触发时播放 animationStateIds 中的下一个状态。")]
+    [SerializeField] private Animator triggerAnimator;
+
+    [Tooltip("Animator State 名称列表。每次触发播放一个，循环使用。")]
+    [SerializeField] private List<string> animationStateIds;
+
     // ─────────── 运行时状态 ───────────
 
     private Vector3Int gridPos;
     private bool wasPressed;
     private bool blockerRegistered;
+    private int animationStateIndex;
 
     /// <summary>快捷访问 MapGrid 单例</summary>
     private MapGrid Grid => GameBootstrap.Instance?.MapGrid;
@@ -244,6 +252,8 @@ public class Trigger : MonoBehaviour
 
     private void FireAll()
     {
+        PlayNextAnimationState();
+
         if (mechanisms == null) return;
 
         foreach (var mech in mechanisms)
@@ -261,6 +271,36 @@ public class Trigger : MonoBehaviour
         {
             if (mech != null)
                 mech.OnClosed(this);
+        }
+    }
+
+    private void PlayNextAnimationState()
+    {
+        if (triggerAnimator == null ||
+            animationStateIds == null ||
+            animationStateIds.Count == 0)
+        {
+            return;
+        }
+
+        int checkedCount = 0;
+
+        while (checkedCount < animationStateIds.Count)
+        {
+            if (animationStateIndex >= animationStateIds.Count)
+                animationStateIndex = 0;
+
+            string stateId = animationStateIds[animationStateIndex];
+            animationStateIndex =
+                (animationStateIndex + 1) % animationStateIds.Count;
+
+            checkedCount++;
+
+            if (string.IsNullOrWhiteSpace(stateId))
+                continue;
+
+            triggerAnimator.Play(stateId);
+            return;
         }
     }
 }
