@@ -20,7 +20,6 @@ public class PushContext
     private readonly GridPositionIndex posIndex;
 
     private readonly List<PushableObject> chain = new();
-    private readonly List<(OrganUnit hand, PushableObject grabbed)> grabbedFollowers = new();
     private readonly HashSet<PushableObject> allMoved = new();
 
     public IReadOnlyList<PushableObject> Chain => chain;
@@ -48,159 +47,129 @@ public class PushContext
         MapGrid grid = controller?.MapGrid;
         if (grid == null || posIndex == null) return false;
 
-        Vector3Int targetPos = movingObject.GridPos + dir;
-
-        // 地形检查（坑洞等）
-        if (!grid.CanPushInto(movingObject, targetPos))
-        {
-            grid.NotifyBlocked(targetPos);
+        if (!BuildMovePlan(movingObject, dir, canPush, bypassHeart, grid))
             return false;
+
+        Execute(dir, ease, duration);
+        return true;
+    }
+
+    // ─────────── 规划 ───────────
+
+    private bool BuildMovePlan(
+        PushableObject root,
+        Vector3Int dir,
+        bool canPush,
+        bool bypassHeart,
+        MapGrid grid)
+    {
+        chain.Clear();
+        allMoved.Clear();
+
+        if (!AddConnectedObject(root))
+            return false;
+
+        bool changed;
+        int safety = 0;
+
+        do
+        {
+            changed = false;
+
+            for (int i = 0; i < chain.Count; i++)
+            {
+                PushableObject obj = chain[i];
+                if (obj == null)
+                    return false;
+
+                Vector3Int targetPos = obj.GridPos + dir;
+
+                if (!grid.CanPushInto(obj, targetPos))
+                {
+                    grid.NotifyBlocked(targetPos);
+                    return false;
+                }
+
+                if (!bypassHeart &&
+                    obj is OrganUnit organ &&
+                    !IsWithinPlannedHeartRange(organ, targetPos, dir))
+                {
+                    return false;
+                }
+
+                PushableObject occupier = posIndex.GetAt(targetPos, obj);
+                if (occupier == null || allMoved.Contains(occupier))
+                    continue;
+
+                if (!canPush)
+                    return false;
+
+                if (!AddConnectedObject(occupier))
+                    return false;
+
+                changed = true;
+            }
+        }
+        while (changed && ++safety < MaxPushChainLength);
+
+        return safety < MaxPushChainLength;
+    }
+
+    private bool AddConnectedObject(PushableObject obj)
+    {
+        if (obj == null)
+            return false;
+
+        if (allMoved.Contains(obj))
+            return true;
+
+        if (chain.Count >= MaxPushChainLength)
+            return false;
+
+        allMoved.Add(obj);
+        chain.Add(obj);
+
+        return AddGrabTargetsIfHand(obj) &&
+               AddHandsGrabbingObject(obj);
+    }
+
+    private bool AddGrabTargetsIfHand(PushableObject obj)
+    {
+        if (obj is not OrganUnit hand ||
+            hand.OrganType != OrganType.Hand ||
+            !hand.IsGrabbing)
+        {
+            return true;
         }
 
-        // 心距离检查
-        if (!bypassHeart &&
-            movingObject is OrganUnit movingOrgan &&
-            !movingOrgan.IsWithinHeartRange(targetPos))
+        foreach (PushableObject grabbed in hand.GrabbedTargets)
         {
-            return false;
-        }
-
-        PushableObject occupier = posIndex.GetAt(targetPos, movingObject);
-
-        if (occupier != null)
-        {
-            if (!canPush) return false;
-
-            if (!CanPush(occupier.GridPos, dir, bypassHeart))
+            if (grabbed != null && !AddConnectedObject(grabbed))
                 return false;
-
-            Execute(dir, ease, duration);
         }
-
-        // 推动链执行后目标格应已腾空
-        PushableObject remaining = posIndex.GetAt(targetPos, movingObject);
-        if (remaining != null) return false;
-
-        movingObject.MoveTo(targetPos, ease, duration);
-
-        // 箱子入坑等特殊结算
-        ResolveSpecialCellEntry(movingObject, targetPos);
-
-        // 手抓取物跟随
-        MoveGrabbedIfHandler(movingObject, dir, ease, duration);
 
         return true;
     }
 
-    // ─────────── 扫描 ───────────
-
-    public void ScanChain(Vector3Int startPos, Vector3Int dir)
+    private bool AddHandsGrabbingObject(PushableObject obj)
     {
-        chain.Clear();
-        grabbedFollowers.Clear();
-        allMoved.Clear();
-
-        Vector3Int checkPos = startPos;
-
-        while (chain.Count < MaxPushChainLength)
+        foreach (PushableObject candidate in posIndex.AllObjects)
         {
-            PushableObject obj = posIndex.GetAt(checkPos);
-            if (obj == null) break;
-            if (chain.Contains(obj)) break;
+            if (candidate is not OrganUnit hand)
+                continue;
 
-            if (IsGrabbedByHandInChain(obj))
+            if (hand.OrganType != OrganType.Hand ||
+                !hand.IsGrabbing ||
+                !hand.GrabbedTargets.Contains(obj))
             {
-                checkPos += dir;
                 continue;
             }
 
-            chain.Add(obj);
-            allMoved.Add(obj);
-            checkPos += dir;
-
-            if (obj is not OrganUnit hand) continue;
-            if (hand.OrganType != OrganType.Hand || !hand.IsGrabbing) continue;
-
-            foreach (PushableObject grabbed in hand.GrabbedTargets)
-            {
-                if (grabbed == null) continue;
-                if (allMoved.Contains(grabbed)) continue;
-                grabbedFollowers.Add((hand, grabbed));
-                allMoved.Add(grabbed);
-            }
-        }
-    }
-
-    private bool IsGrabbedByHandInChain(PushableObject obj)
-    {
-        foreach (PushableObject c in chain)
-        {
-            if (c is not OrganUnit hand) continue;
-            if (hand.OrganType != OrganType.Hand) continue;
-            if (hand.GrabbedTargets.Contains(obj)) return true;
-        }
-        return false;
-    }
-
-    // ─────────── 验证 ───────────
-
-    public bool Validate(Vector3Int dir, bool bypassHeart = false)
-    {
-        if (chain.Count == 0) return false;
-        if (!IsCardinalDirection(dir)) return false;
-
-        MapGrid grid = controller?.MapGrid;
-        if (grid == null) return false;
-
-        // 1. 链尾地形
-        PushableObject chainEnd = chain[chain.Count - 1];
-        Vector3Int chainEndTarget = chainEnd.GridPos + dir;
-        if (!grid.CanPushInto(chainEnd, chainEndTarget))
-        {
-            grid.NotifyBlocked(chainEndTarget);
-            return false;
-        }
-
-        // 2. 占用检查
-        foreach (PushableObject pushed in chain)
-        {
-            Vector3Int targetPos = pushed.GridPos + dir;
-            PushableObject occ = posIndex.GetAt(targetPos);
-            if (occ != null && !allMoved.Contains(occ)) return false;
-        }
-
-        // 3. 心距离
-        if (!bypassHeart)
-        {
-            foreach (PushableObject pushed in chain)
-            {
-                if (pushed is not OrganUnit organ) continue;
-                if (!organ.IsWithinHeartRange(organ.GridPos + dir)) return false;
-            }
-        }
-
-        // 4. 抓取跟随物
-        foreach (var (_, grabbed) in grabbedFollowers)
-        {
-            if (grabbed == null) return false;
-
-            Vector3Int targetPos = grabbed.GridPos + dir;
-            if (!grid.IsWalkable(targetPos)) return false;
-
-            PushableObject occ = posIndex.GetAt(targetPos);
-            if (occ != null && !allMoved.Contains(occ)) return false;
-
-            if (!bypassHeart && grabbed is OrganUnit gOrgan &&
-                !gOrgan.IsWithinHeartRange(targetPos)) return false;
+            if (!AddConnectedObject(hand))
+                return false;
         }
 
         return true;
-    }
-
-    public bool CanPush(Vector3Int startPos, Vector3Int dir, bool bypassHeart = false)
-    {
-        ScanChain(startPos, dir);
-        return Validate(dir, bypassHeart);
     }
 
     // ─────────── 执行 ───────────
@@ -209,19 +178,18 @@ public class PushContext
     {
         if (chain.Count == 0) return;
 
-        PushableObject chainEnd = chain[chain.Count - 1];
-        Vector3Int chainEndTarget = chainEnd.GridPos + dir;
+        chain.Sort(
+            (a, b) => GetDirectionOrder(b, dir)
+                .CompareTo(GetDirectionOrder(a, dir))
+        );
 
-        for (int i = chain.Count - 1; i >= 0; i--)
-            chain[i].ApplyPush(dir, ease, duration);
+        var movedObjects = new List<PushableObject>(chain);
 
-        foreach (var (_, grabbed) in grabbedFollowers)
-        {
-            if (grabbed == null) continue;
-            grabbed.MoveTo(grabbed.GridPos + dir, ease, duration);
-        }
+        foreach (PushableObject obj in movedObjects)
+            obj.MoveTo(obj.GridPos + dir, ease, duration);
 
-        ResolveSpecialCellEntry(chainEnd, chainEndTarget);
+        foreach (PushableObject obj in movedObjects)
+            ResolveSpecialCellEntry(obj, obj.GridPos);
     }
 
     // ─────────── 特殊格子结算 ───────────
@@ -240,32 +208,36 @@ public class PushContext
         pushable.gameObject.SetActive(false);
     }
 
-    // ─────────── 抓取跟随 ───────────
+    // ─────────── 工具 ───────────
 
-    private void MoveGrabbedIfHandler(PushableObject obj, Vector3Int dir, Ease ease, float? duration)
+    private static int GetDirectionOrder(PushableObject obj, Vector3Int dir)
     {
-        if (obj is not OrganUnit hand || hand.OrganType != OrganType.Hand || !hand.IsGrabbing)
-            return;
-
-        var grid = controller.MapGrid;
-        if (grid == null) return;
-
-        foreach (var grabbed in hand.GrabbedTargets)
-        {
-            if (grabbed == null) continue;
-            if (allMoved.Contains(grabbed)) continue;
-
-            Vector3Int grabbedTarget = grabbed.GridPos + dir;
-            if (!grid.IsWalkable(grabbedTarget)) continue;
-
-            PushableObject blocker = posIndex.GetAt(grabbedTarget, grabbed);
-            if (blocker != null && !allMoved.Contains(blocker)) continue;
-
-            grabbed.MoveTo(grabbedTarget, ease, duration);
-        }
+        Vector3Int pos = obj != null ? obj.GridPos : Vector3Int.zero;
+        return pos.x * dir.x + pos.y * dir.y;
     }
 
-    // ─────────── 工具 ───────────
+    private bool IsWithinPlannedHeartRange(
+        OrganUnit organ,
+        Vector3Int targetPos,
+        Vector3Int dir)
+    {
+        if (organ == null || organ.OrganType == OrganType.Heart)
+            return true;
+
+        OrganUnit heart = controller?.HeartUnit;
+        int maxDist = organ.MaxHeartDistance;
+        if (heart == null || maxDist <= 0)
+            return true;
+
+        Vector3Int heartPos = allMoved.Contains(heart)
+            ? heart.GridPos + dir
+            : heart.GridPos;
+
+        int dist = Mathf.Abs(targetPos.x - heartPos.x) +
+                   Mathf.Abs(targetPos.y - heartPos.y);
+
+        return dist <= maxDist;
+    }
 
     private static bool IsCardinalDirection(Vector3Int dir)
     {

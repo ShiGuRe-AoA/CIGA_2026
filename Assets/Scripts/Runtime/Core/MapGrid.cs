@@ -71,6 +71,13 @@ public class MapGrid : MonoBehaviour
     private readonly Dictionary<Vector3Int, PitMechanism> pits =
         new Dictionary<Vector3Int, PitMechanism>();
 
+    /// <summary>
+    /// 当前被标记为激活的器官。
+    /// 例如：当前操作脚、当前视野眼睛、正在抓取物体的手。
+    /// </summary>
+    public List<OrganUnit> activeOrgans =
+        new List<OrganUnit>();
+
     /// <summary>地图宽度，单位为格。</summary>
     public int Width { get; private set; }
 
@@ -80,11 +87,44 @@ public class MapGrid : MonoBehaviour
     /// <summary>地图包围盒最小格坐标。</summary>
     public Vector3Int Origin => gridBounds.min;
 
+    /// <summary>当前激活的器官列表。</summary>
+    public IReadOnlyList<OrganUnit> ActiveOrgans => activeOrgans;
+
     /// <summary>
     /// 当移动被某格阻挡时触发。
     /// 参数为造成阻挡的格子坐标。
     /// </summary>
     public event System.Action<Vector3Int> OnCellBlocked;
+
+    /// <summary>
+    /// 将指定器官标记为激活。
+    /// </summary>
+    public void RegisterActiveOrgan(OrganUnit organ)
+    {
+        if (organ == null || activeOrgans.Contains(organ))
+            return;
+
+        activeOrgans.Add(organ);
+    }
+
+    /// <summary>
+    /// 将指定器官从激活列表移除。
+    /// </summary>
+    public void UnregisterActiveOrgan(OrganUnit organ)
+    {
+        if (organ == null)
+            return;
+
+        activeOrgans.Remove(organ);
+    }
+
+    /// <summary>
+    /// 清空所有激活器官标记。
+    /// </summary>
+    public void ClearActiveOrgans()
+    {
+        activeOrgans.Clear();
+    }
 
     private void Awake()
     {

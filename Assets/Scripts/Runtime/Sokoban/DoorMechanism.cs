@@ -100,8 +100,19 @@ public class DoorMechanism : Mechanism
 
     public override void OnTriggered(Trigger source)
     {
+        base.OnTriggered(source);
+
         if (!openWhenTriggered) return;
         Open();
+    }
+
+    /// <summary>
+    /// 压力板释放时关闭门。
+    /// </summary>
+    public override void OnClosed(Trigger source)
+    {
+        base.OnClosed(source);
+        Close();
     }
 
     // ─────────── 状态控制 ───────────

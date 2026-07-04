@@ -86,6 +86,8 @@ public class OrganController : MonoBehaviour
         pullBackSequence?.Kill(complete: false);
         pullBackSequence = null;
 
+        UnregisterAllActiveOrgans();
+
         // 取消所有位置变更事件订阅。
         foreach (var pushable in posIndex.AllObjects)
             pushable.OnGridPositionChanged -= OnPushableMoved;
@@ -183,6 +185,7 @@ public class OrganController : MonoBehaviour
             posIndex.Register(scenePushable);
 
         InitCameras();
+        RefreshActiveOrganRegistrations();
 
         Log(
             $"[OrganController] 初始化: {organs.Count} 器官" +
@@ -247,6 +250,56 @@ public class OrganController : MonoBehaviour
         {
             heartUnit.SetCameraActive(true);
         }
+
+        RefreshActiveOrganRegistrations();
+    }
+
+    /// <summary>
+    /// 重新同步 MapGrid 中的激活器官列表。
+    /// </summary>
+    private void RefreshActiveOrganRegistrations()
+    {
+        UnregisterAllActiveOrgans();
+
+        SetOrganActive(ActiveFoot, true);
+
+        if (eyeOrgans.Count > 0 &&
+            activeEyeIndex >= 0 &&
+            activeEyeIndex < eyeOrgans.Count)
+        {
+            SetOrganActive(eyeOrgans[activeEyeIndex], true);
+        }
+
+        foreach (var hand in handOrgans)
+            SyncHandActiveState(hand);
+    }
+
+    private void SyncHandActiveState(OrganUnit hand)
+    {
+        if (hand == null)
+            return;
+
+        SetOrganActive(hand, hand.IsGrabbing);
+    }
+
+    private void SetOrganActive(OrganUnit organ, bool active)
+    {
+        if (Grid == null || organ == null)
+            return;
+
+        if (active)
+            Grid.RegisterActiveOrgan(organ);
+        else
+            Grid.UnregisterActiveOrgan(organ);
+    }
+
+    private void UnregisterAllActiveOrgans()
+    {
+        if (Grid == null)
+            return;
+
+        foreach (var organ in organs)
+            Grid.UnregisterActiveOrgan(organ);
     }
 
     // ─────────── Update ───────────
@@ -278,8 +331,13 @@ public class OrganController : MonoBehaviour
         if (!Input.GetKeyDown(footSwitchKey))
             return;
 
+        OrganUnit oldFoot = ActiveFoot;
+
         activeFootIndex =
             (activeFootIndex + 1) % footOrgans.Count;
+
+        SetOrganActive(oldFoot, false);
+        SetOrganActive(ActiveFoot, true);
 
         Log(
             $"[OrganController] 切换到脚: " +
@@ -297,12 +355,16 @@ public class OrganController : MonoBehaviour
         if (!Input.GetKeyDown(eyeSwitchKey))
             return;
 
-        eyeOrgans[activeEyeIndex].SetCameraActive(false);
+        OrganUnit oldEye = eyeOrgans[activeEyeIndex];
+        oldEye.SetCameraActive(false);
+        SetOrganActive(oldEye, false);
 
         activeEyeIndex =
             (activeEyeIndex + 1) % eyeOrgans.Count;
 
-        eyeOrgans[activeEyeIndex].SetCameraActive(true);
+        OrganUnit newEye = eyeOrgans[activeEyeIndex];
+        newEye.SetCameraActive(true);
+        SetOrganActive(newEye, true);
 
         Log(
             $"[OrganController] 摄像机切换到眼球: " +
@@ -349,7 +411,10 @@ public class OrganController : MonoBehaviour
         if (handsGrabbing)
         {
             foreach (var hand in handOrgans)
+            {
                 hand.ReleaseAllGrabbed();
+                SyncHandActiveState(hand);
+            }
 
             handsGrabbing = false;
             Log("[OrganController] 所有 Hand 已释放。");
@@ -374,6 +439,8 @@ public class OrganController : MonoBehaviour
                 hand.AddGrabbed(obj);
                 totalGrabbed++;
             }
+
+            SyncHandActiveState(hand);
         }
 
         Log(
@@ -441,6 +508,9 @@ public class OrganController : MonoBehaviour
             new PushContext(this, posIndex);
 
         float? duration = thisDuration > 0f ? thisDuration : null;
+        Vector3Int heartOldPos = heartUnit != null
+            ? heartUnit.GridPos
+            : Vector3Int.zero;
 
         bool moved = context.TryMoveWithPush(
             obj,
@@ -451,9 +521,13 @@ public class OrganController : MonoBehaviour
             duration
         );
 
-        // 心被动移动 → 触发超距器官拉回（脚推、传送带推、推链等一切场景）
-        if (moved && obj == heartUnit)
+        // 心被任何移动计划带动 → 触发超距器官拉回。
+        if (moved &&
+            heartUnit != null &&
+            heartUnit.GridPos != heartOldPos)
+        {
             PullOutOfRangeOrgansByCurrentMode();
+        }
 
         return moved;
     }
@@ -1233,6 +1307,8 @@ public class OrganController : MonoBehaviour
         // 眼数量变化 → 重新评估摄像机
         if (oldType == OrganType.Eye || newType == OrganType.Eye)
             ReevaluateCamera();
+        else
+            RefreshActiveOrganRegistrations();
 
         Log($"[OrganController] {organ.name} 从 {oldType} 切换为 {newType}");
     }

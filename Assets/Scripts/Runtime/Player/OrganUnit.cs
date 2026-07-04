@@ -238,7 +238,7 @@ public class OrganUnit : PushableObject
     public override void MoveTo(Vector3Int newPos, Ease ease = Ease.InOutQuad, float? duration = null)
     {
         Vector3Int delta = newPos - gridPos;
-        base.MoveTo(newPos);
+        base.MoveTo(newPos, ease, duration);
 
         if (delta != Vector3Int.zero)
         {
@@ -326,6 +326,10 @@ public class OrganUnit : PushableObject
     /// <returns>是否成功移动</returns>
     public bool TryMoveSelf(Vector3Int dir)
     {
+        var ctrl = GameBootstrap.Instance?.OrganController;
+        if (ctrl != null)
+            return ctrl.InvokeTryMoveWithPush(this, dir, canPush: true, 0f);
+
         Vector3Int target = gridPos + dir;
         if (!CanMoveTo(target)) return false;
         MoveTo(target);

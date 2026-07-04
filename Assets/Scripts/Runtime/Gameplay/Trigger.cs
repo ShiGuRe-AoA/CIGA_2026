@@ -20,7 +20,7 @@ public enum TriggerMode
 /// 触发器。挂载在关卡格子上的 GameObject，检测符合条件的物体并激活关联的机关。
 ///
 /// Press 模式：每帧检测是否有符合筛选的物体占住本格，从无到有时触发一次。
-/// Impact 模式：将本格标记为障碍物，当物体被本格阻挡时触发一次。
+/// Impact 模式：当物体尝试进入本格但被阻挡时触发一次。
 /// Interact 模式：不做自动检测，由外部（如手交互）主动调用 Trigger()。
 /// </summary>
 public class Trigger : MonoBehaviour
@@ -29,6 +29,14 @@ public class Trigger : MonoBehaviour
 
     [Header("模式")]
     [SerializeField] private TriggerMode mode = TriggerMode.Press;
+
+    [Header("压力板")]
+    [Tooltip("开启后，Press 条件从满足变为不满足时，会调用关联 Mechanism 的 OnClosed。")]
+    [SerializeField] private bool pressurePlate;
+
+    [Header("阻挡")]
+    [Tooltip("开启后，本触发器所在格会注册为动态墙体阻挡。常用于 Impact 模式。")]
+    [SerializeField] private bool blockMovement;
 
     [Header("筛选 — 器官")]
     [SerializeField] private bool detectHeart;
@@ -47,6 +55,7 @@ public class Trigger : MonoBehaviour
 
     private Vector3Int gridPos;
     private bool wasPressed;
+    private bool blockerRegistered;
 
     /// <summary>快捷访问 MapGrid 单例</summary>
     private MapGrid Grid => GameBootstrap.Instance?.MapGrid;
@@ -64,11 +73,11 @@ public class Trigger : MonoBehaviour
         if (GameBootstrap.Instance != null)
             GameBootstrap.Instance.AllTriggers.Add(this);
 
+        if (blockMovement)
+            RegisterBlocker();
+
         if (mode == TriggerMode.Impact && Grid != null)
-        {
-            Grid.RegisterBlocker(gridPos);
             Grid.OnCellBlocked += HandleCellBlocked;
-        }
     }
 
     private void Update()
@@ -84,7 +93,7 @@ public class Trigger : MonoBehaviour
 
         if (Grid != null)
         {
-            Grid.UnregisterBlocker(gridPos);
+            UnregisterBlocker();
             Grid.OnCellBlocked -= HandleCellBlocked;
         }
     }
@@ -116,6 +125,43 @@ public class Trigger : MonoBehaviour
 
     /// <summary>本触发器所在的格子坐标。</summary>
     public Vector3Int GridPos => gridPos;
+
+    /// <summary>当前是否将本格作为动态墙体阻挡。</summary>
+    public bool BlocksMovement => blockMovement;
+
+    /// <summary>
+    /// 运行时切换本触发器是否阻挡移动。
+    /// </summary>
+    public void SetBlocksMovement(bool blocks)
+    {
+        if (blockMovement == blocks)
+            return;
+
+        blockMovement = blocks;
+
+        if (blockMovement)
+            RegisterBlocker();
+        else
+            UnregisterBlocker();
+    }
+
+    private void RegisterBlocker()
+    {
+        if (Grid == null || blockerRegistered)
+            return;
+
+        Grid.RegisterBlocker(gridPos);
+        blockerRegistered = true;
+    }
+
+    private void UnregisterBlocker()
+    {
+        if (Grid == null || !blockerRegistered)
+            return;
+
+        Grid.UnregisterBlocker(gridPos);
+        blockerRegistered = false;
+    }
 
     // ─────────── 筛选 ───────────
 
@@ -155,6 +201,8 @@ public class Trigger : MonoBehaviour
 
         if (isPressed && !wasPressed)
             FireAll();
+        else if (!isPressed && wasPressed && pressurePlate)
+            CloseAll();
 
         wasPressed = isPressed;
     }
@@ -202,6 +250,17 @@ public class Trigger : MonoBehaviour
         {
             if (mech != null)
                 mech.OnTriggered(this);
+        }
+    }
+
+    private void CloseAll()
+    {
+        if (mechanisms == null) return;
+
+        foreach (var mech in mechanisms)
+        {
+            if (mech != null)
+                mech.OnClosed(this);
         }
     }
 }
