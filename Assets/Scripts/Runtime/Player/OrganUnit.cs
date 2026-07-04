@@ -85,9 +85,9 @@ public class OrganUnit : PushableObject
         if (organType == newType) return;
         organType = newType;
 
-        // 更新精灵
+        // 更新精灵（交替使用两张图）
         if (spriteConfig != null && spriteRenderer != null)
-            spriteRenderer.sprite = spriteConfig.GetSprite(organType);
+            spriteRenderer.sprite = spriteConfig.GetAlternatingSprite(organType);
 
         // 新的 Hand/Foot/Eye → 默认关闭摄像机（OrganController 管理激活）
         if (vcam != null)
@@ -189,6 +189,8 @@ public class OrganUnit : PushableObject
 
     // ─────────── 生命周期 ───────────
 
+    private bool spriteInitialized;
+
     protected override void Awake()
     {
         base.Awake();
@@ -205,6 +207,13 @@ public class OrganUnit : PushableObject
             pointerPivot = transform.Find("Pointer");
         if (chargeBarImage == null)
             chargeBarImage = GetComponentInChildren<UnityEngine.UI.Image>();
+
+        // 交替分配初始 Sprite（仅首次）
+        if (!spriteInitialized && spriteConfig != null && spriteRenderer != null)
+        {
+            spriteRenderer.sprite = spriteConfig.GetAlternatingSprite(organType);
+            spriteInitialized = true;
+        }
 
         // 蓄力条初始隐藏
         if (chargeBarImage != null)

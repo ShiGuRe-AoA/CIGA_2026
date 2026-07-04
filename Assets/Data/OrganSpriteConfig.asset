@@ -12,7 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33445a5bc32acfb4284777f5028499ff, type: 3}
   m_Name: OrganSpriteConfig
   m_EditorClassIdentifier: 
-  heartSprite: {fileID: 21300000, guid: 2297eb4fceb3e2f4da350bcffde927e5, type: 3}
-  footSprite: {fileID: 21300000, guid: ca1eef00c03144c47a472bf552b4b4a1, type: 3}
-  handSprite: {fileID: 21300000, guid: 92ff645338952c54991a70a8147a33cf, type: 3}
-  eyeSprite: {fileID: 21300000, guid: 39cc1ab4199a07c488797da2ad08abbb, type: 3}
+  heartSprite: {fileID: 21300000, guid: 1e1cb701166a34b45a5ce1df73b33409, type: 3}
+  footSpriteA: {fileID: 21300000, guid: fa0d15e5ba703ed4a97bd70fbc4258b3, type: 3}
+  footSpriteB: {fileID: 21300000, guid: fab2f3deba4f87245b263fd8ad4cb534, type: 3}
+  handSpriteA: {fileID: 21300000, guid: 4a59ae8275dfa9244a7793be3a98dcc2, type: 3}
+  handSpriteB: {fileID: 21300000, guid: 1dcb86b5b636b304387b050d0004c59a, type: 3}
+  eyeSpriteA: {fileID: 21300000, guid: c9a885b03957eeb4880be6fa0fd394b2, type: 3}
+  eyeSpriteB: {fileID: 21300000, guid: 011e5ce1d1666474c96d9c4047eb1d0b, type: 3}
