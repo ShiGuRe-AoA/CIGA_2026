@@ -1,6 +1,8 @@
 using UnityEngine;
 using Cinemachine;
 using System.Collections.Generic;
+using UnityEngine.UI;
+using DG.Tweening;
 
 /// <summary>
 /// 四方向枚举，用于表示器官和指针的朝向。
@@ -25,8 +27,28 @@ public class OrganUnit : PushableObject
     [Header("朝向")]
     [SerializeField] private Transform pointerPivot;  // 子物体偏心指针，初始朝上
 
+    private float chargeBarFillAmount
+    {
+        get
+        {
+            return chargeBarImage.fillAmount;
+        }
+        set
+        {
+            chargeBarImage.fillAmount = value;
+            if(value == 0)
+            {
+                chargeBarTransform.gameObject.SetActive(false);
+            }
+            else
+            {
+                chargeBarTransform.gameObject.SetActive(true);
+            }
+        }
+    }
     [Header("蓄力")]
-    [SerializeField] private UnityEngine.UI.Image chargeBarImage;  // 蓄力条 Image，用 fillAmount 控制
+    [SerializeField] private Image chargeBarImage;  // 蓄力条填充 Image，用 fillAmount 控制
+    [SerializeField] private Transform chargeBarTransform;  // 蓄力条父物体
 
     [Header("约束")]
     [SerializeField] private int maxHeartDistance = 8;
@@ -45,6 +67,37 @@ public class OrganUnit : PushableObject
 
     /// <summary>器官类型</summary>
     public OrganType OrganType => organType;
+
+    /// <summary>
+    /// 运行时切换器官类型，同步更新精灵、摄像机状态和蓄力条显隐。
+    /// OrganController 负责同步其分类列表。
+    /// </summary>
+    public void SwitchOrganType(OrganType newType)
+    {
+        if (organType == newType) return;
+        organType = newType;
+
+        // 更新精灵
+        if (spriteConfig != null && spriteRenderer != null)
+            spriteRenderer.sprite = spriteConfig.GetSprite(organType);
+
+        // 新的 Hand/Foot/Eye → 默认关闭摄像机（OrganController 管理激活）
+        if (vcam != null)
+            vcam.gameObject.SetActive(false);
+
+        // 新类型不是 Foot → 隐藏蓄力条
+        if (organType != OrganType.Foot && chargeBarImage != null)
+        {
+            chargeBarImage.fillAmount = 0f;
+            if (chargeBarTransform != null)
+                chargeBarTransform.gameObject.SetActive(false);
+        }
+        else
+        {
+            if (chargeBarTransform != null)
+                chargeBarTransform.gameObject.SetActive(true);
+        }
+    }
 
     /// <summary>心的引用（由 OrganController 注入）</summary>
     public OrganUnit HeartUnit
@@ -108,7 +161,7 @@ public class OrganUnit : PushableObject
             return;
         }
 
-        chargeBarImage.fillAmount = Mathf.Clamp01(t);
+        chargeBarFillAmount = Mathf.Clamp01(t);
         bool show = t > 0.001f;
 
         if (chargeBarImage.transform.parent != null)
@@ -136,7 +189,7 @@ public class OrganUnit : PushableObject
 
         // 蓄力条初始隐藏
         if (chargeBarImage != null)
-            chargeBarImage.fillAmount = 0f;
+            chargeBarFillAmount = 0f;
 
         if (vcam != null)
             vcam.gameObject.SetActive(false);
@@ -151,7 +204,7 @@ public class OrganUnit : PushableObject
     /// <summary>
     /// 覆写基类 MoveTo，额外记录移动方向作为朝向并更新指针旋转。
     /// </summary>
-    public override void MoveTo(Vector3Int newPos)
+    public override void MoveTo(Vector3Int newPos, Ease ease = Ease.InOutQuad, float? duration = null)
     {
         Vector3Int delta = newPos - gridPos;
         base.MoveTo(newPos);

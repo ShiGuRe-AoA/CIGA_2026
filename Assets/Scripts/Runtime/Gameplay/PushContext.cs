@@ -1,3 +1,4 @@
+using DG.Tweening;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -162,18 +163,19 @@ public class PushContext
     /// 执行推动：从链尾向链头倒序推动，然后移动抓取跟随者。
     /// 使用先前 ScanChain 收集的链。
     /// </summary>
-    public void Execute(Vector3Int dir)
+    /// <param name="duration">动画时长，null 时使用物体自身 MoveDuration</param>
+    public void Execute(Vector3Int dir, Ease ease = Ease.OutQuad, float? duration = null)
     {
         // 1. 从链尾向链头推动（避免前方物体覆盖后方位置）
         for (int i = chain.Count - 1; i >= 0; i--)
         {
-            chain[i].ApplyPush(dir);
+            chain[i].ApplyPush(dir, ease, duration);
         }
 
         // 2. 抓取跟随者同步移动
         foreach (var (_, grabbed) in grabbedFollowers)
         {
-            grabbed.MoveTo(grabbed.GridPos + dir);
+            grabbed.MoveTo(grabbed.GridPos + dir, ease, duration);
         }
     }
 
@@ -193,8 +195,9 @@ public class PushContext
     /// <param name="dir">移动方向</param>
     /// <param name="canPush">是否允许推动前方阻挡物</param>
     /// <param name="bypassHeart">推链时是否跳过心距离检查（仅蓄力踢用）</param>
+    /// <param name="duration">动画时长，null 时使用物体自身 MoveDuration</param>
     /// <returns>物体是否成功到达目标格</returns>
-    public bool TryMoveWithPush(PushableObject obj, Vector3Int dir, bool canPush, bool bypassHeart = false)
+    public bool TryMoveWithPush(PushableObject obj, Vector3Int dir, bool canPush, bool bypassHeart = false, Ease ease = Ease.InOutQuad, float? duration = null)
     {
         var grid = controller.MapGrid;
         if (grid == null) return false;
@@ -240,11 +243,43 @@ public class PushContext
             if (!CanPush(occupier.GridPos, dir, bypassHeart))
                 return false;
 
-            Execute(dir);
+            Execute(dir, ease, duration);
         }
 
         // 3. 移动自身
-        obj.MoveTo(targetPos);
+        obj.MoveTo(targetPos, ease, duration);
+
+        // 4. 抓取跟随：如果移动方是手且有抓取物，未在推链中的抓取物一并移动
+        MoveGrabbedIfHandler(obj, dir, ease, duration);
+
         return true;
+    }
+
+    /// <summary>
+    /// 若 obj 是手且有抓取目标，将未被推链处理过的抓取物沿同方向移动一格。
+    /// </summary>
+    private void MoveGrabbedIfHandler(PushableObject obj, Vector3Int dir, Ease ease, float? duration)
+    {
+        if (!(obj is OrganUnit hand) || hand.OrganType != OrganType.Hand || !hand.IsGrabbing)
+            return;
+
+        var grid = controller.MapGrid;
+        if (grid == null) return;
+
+        foreach (var grabbed in hand.GrabbedTargets)
+        {
+            if (grabbed == null) continue;
+
+            // 已被推链处理的不重复移动
+            if (allMoved.Contains(grabbed)) continue;
+
+            Vector3Int grabbedTarget = grabbed.GridPos + dir;
+            if (!grid.IsWalkable(grabbedTarget)) continue;
+
+            PushableObject blocker = posIndex.GetAt(grabbedTarget, grabbed);
+            if (blocker != null && !allMoved.Contains(blocker)) continue;
+
+            grabbed.MoveTo(grabbedTarget, ease, duration);
+        }
     }
 }
