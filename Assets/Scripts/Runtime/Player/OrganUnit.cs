@@ -132,8 +132,11 @@ public class OrganUnit : PushableObject
     public override Vector3 VisualCenter =>
         spriteRenderer != null ? spriteRenderer.transform.position : transform.position;
 
-    /// <summary>该器官距离心的最大曼哈顿距离限制</summary>
-    public int MaxHeartDistance => maxHeartDistance;
+    /// <summary>该器官距离心的最大曼哈顿距离限制（优先读取 SpriteConfig 的类型配置）</summary>
+    public int MaxHeartDistance =>
+        spriteConfig != null
+            ? spriteConfig.GetHeartDistance(organType)
+            : maxHeartDistance;
 
     /// <summary>
     /// 蓄力踢后器官回缩到的目标心脏距离。
@@ -143,7 +146,7 @@ public class OrganUnit : PushableObject
         Mathf.Clamp(
             kickReturnHeartDistance,
             1,
-            Mathf.Max(1, maxHeartDistance)
+            Mathf.Max(1, MaxHeartDistance)
         );
 
     // ─────────── 摄像机 ───────────
@@ -356,11 +359,13 @@ public class OrganUnit : PushableObject
     public bool IsOutOfHeartRange()
     {
         if (organType == OrganType.Heart) return false;
-        if (HeartUnit == null || maxHeartDistance <= 0) return false;
+
+        int maxDist = MaxHeartDistance;
+        if (HeartUnit == null || maxDist <= 0) return false;
 
         int dist = Mathf.Abs(gridPos.x - HeartUnit.gridPos.x)
                  + Mathf.Abs(gridPos.y - HeartUnit.gridPos.y);
-        return dist > maxHeartDistance;
+        return dist > maxDist;
     }
 
     /// <summary>
@@ -385,11 +390,13 @@ public class OrganUnit : PushableObject
     public bool IsWithinHeartRange(Vector3Int checkPos)
     {
         if (organType == OrganType.Heart) return true;
-        if (HeartUnit == null || maxHeartDistance <= 0) return true;
+
+        int maxDist = MaxHeartDistance;
+        if (HeartUnit == null || maxDist <= 0) return true;
 
         int dist = Mathf.Abs(checkPos.x - HeartUnit.gridPos.x)
                  + Mathf.Abs(checkPos.y - HeartUnit.gridPos.y);
-        return dist <= maxHeartDistance;
+        return dist <= maxDist;
     }
 
     // ─────────── 手抓取 ───────────
@@ -490,10 +497,10 @@ public class OrganUnit : PushableObject
 
         Gizmos.DrawLine(transform.position, HeartUnit.transform.position);
 
-        if (organType != OrganType.Heart && maxHeartDistance > 0)
+        if (organType != OrganType.Heart && MaxHeartDistance > 0)
         {
             Gizmos.color = new Color(1f, 1f, 0f, 0.15f);
-            float r = maxHeartDistance;
+            float r = MaxHeartDistance;
             Vector3 size = new Vector3(r * 2f + 1f, r * 2f + 1f, 0.01f);
             Gizmos.DrawWireCube(HeartUnit.transform.position, size);
         }

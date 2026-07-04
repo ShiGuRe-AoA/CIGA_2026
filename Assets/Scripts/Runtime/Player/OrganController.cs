@@ -29,6 +29,10 @@ public class OrganController : MonoBehaviour
     )]
     [SerializeField] private bool useNewPullLogic = false;
 
+    [Header("手动注册")]
+    [Tooltip("手动拖入 OrganUnit。为空时自动查找子对象。")]
+    [SerializeField] private List<OrganUnit> manualOrgans;
+
     // ─────────── 运行时状态 ───────────
 
     private readonly List<OrganUnit> organs = new List<OrganUnit>();
@@ -94,7 +98,16 @@ public class OrganController : MonoBehaviour
     private void CollectAll()
     {
         organs.Clear();
-        GetComponentsInChildren(organs);
+
+        // 手动注册优先，为空时自动查找子对象
+        if (manualOrgans != null && manualOrgans.Count > 0)
+        {
+            organs.AddRange(manualOrgans);
+        }
+        else
+        {
+            GetComponentsInChildren(organs);
+        }
 
         posIndex.Clear();
 
@@ -144,9 +157,12 @@ public class OrganController : MonoBehaviour
         if (handOrgans.Count == 0)
             Debug.LogWarning("[OrganController] 未找到 Hand。");
 
-        // 注入心引用。
+        // 注入心引用 + 对齐网格（必须在注册索引之前）
         foreach (var organ in organs)
+        {
             organ.HeartUnit = heartUnit;
+            organ.SnapToGrid();
+        }
 
         // 收集所有普通场景可推动物。
         var scenePushables =
@@ -160,7 +176,7 @@ public class OrganController : MonoBehaviour
             scenePushable.OnGridPositionChanged += OnPushableMoved;
         }
 
-        // 批量注册到位置索引。
+        // 批量注册到位置索引（此时 gridPos 已初始化）
         posIndex.RegisterAll(organs);
 
         foreach (var scenePushable in scenePushables)
@@ -208,6 +224,28 @@ public class OrganController : MonoBehaviour
         {
             heartUnit.SetCameraActive(true);
             Log("[OrganController] 摄像机: 心（无眼球）");
+        }
+    }
+
+    /// <summary>
+    /// 运行时重新评估摄像机：有眼则用眼，无眼则用心。
+    /// </summary>
+    private void ReevaluateCamera()
+    {
+        // 关闭所有摄像机
+        foreach (var organ in organs)
+            organ.SetCameraActive(false);
+
+        if (eyeOrgans.Count > 0)
+        {
+            // 矫正索引后激活第一个可用的眼
+            if (activeEyeIndex >= eyeOrgans.Count)
+                activeEyeIndex = 0;
+            eyeOrgans[activeEyeIndex].SetCameraActive(true);
+        }
+        else if (heartUnit != null && heartUnit.HasCamera)
+        {
+            heartUnit.SetCameraActive(true);
         }
     }
 
@@ -404,7 +442,7 @@ public class OrganController : MonoBehaviour
 
         float? duration = thisDuration > 0f ? thisDuration : null;
 
-        return context.TryMoveWithPush(
+        bool moved = context.TryMoveWithPush(
             obj,
             dir,
             canPush,
@@ -412,6 +450,12 @@ public class OrganController : MonoBehaviour
             ease,
             duration
         );
+
+        // 心被动移动 → 触发超距器官拉回（脚推、传送带推、推链等一切场景）
+        if (moved && obj == heartUnit)
+            PullOutOfRangeOrgansByCurrentMode();
+
+        return moved;
     }
 
     /// <summary>
@@ -435,11 +479,6 @@ public class OrganController : MonoBehaviour
         OrganUnit foot,
         Vector3Int dir)
     {
-        Vector3Int heartOldPos =
-            heartUnit != null
-                ? heartUnit.GridPos
-                : Vector3Int.zero;
-
         Vector3Int oldPos = foot.GridPos;
 
         if (!TryMoveWithPush(
@@ -454,12 +493,7 @@ public class OrganController : MonoBehaviour
             return;
         }
 
-        // 心脏被推动后，按照当前选定的新旧逻辑拉回超距器官。
-        if (heartUnit != null &&
-            heartUnit.GridPos != heartOldPos)
-        {
-            PullOutOfRangeOrgansByCurrentMode();
-        }
+        // 心被动移动的检测已统一在 TryMoveWithPush 中处理
 
         Log(
             $"[OrganController] {foot.name} " +
@@ -1195,6 +1229,10 @@ public class OrganController : MonoBehaviour
         // 修正活动脚索引（若切换走了活动脚，切换到下一个可用脚）
         if (oldType == OrganType.Foot && activeFootIndex >= footOrgans.Count)
             activeFootIndex = footOrgans.Count > 0 ? 0 : 0;
+
+        // 眼数量变化 → 重新评估摄像机
+        if (oldType == OrganType.Eye || newType == OrganType.Eye)
+            ReevaluateCamera();
 
         Log($"[OrganController] {organ.name} 从 {oldType} 切换为 {newType}");
     }

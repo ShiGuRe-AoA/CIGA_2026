@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// 器官 Sprite 集中配置资产。
+/// 器官 Sprite & 参数集中配置资产。
 /// </summary>
 [CreateAssetMenu(menuName = "Anchor/Organ Sprite Config", fileName = "OrganSpriteConfig")]
 public class OrganSpriteConfig : ScriptableObject
@@ -20,6 +20,14 @@ public class OrganSpriteConfig : ScriptableObject
     [Header("眼 — 交替使用")]
     [SerializeField] private Sprite eyeSpriteA;
     [SerializeField] private Sprite eyeSpriteB;
+
+    [Header("距心最大距离（按类型）")]
+    [Tooltip("脚的最大距离，默认 4。")]
+    [SerializeField, Min(1)] private int footMaxHeartDistance = 4;
+    [Tooltip("手的最大距离，默认 4。")]
+    [SerializeField, Min(1)] private int handMaxHeartDistance = 4;
+    [Tooltip("眼的最大距离，默认 8。")]
+    [SerializeField, Min(1)] private int eyeMaxHeartDistance = 8;
 
     // 每个类型独立的计数器，交替分配 variant A / B
     private int footVariant;
@@ -55,6 +63,21 @@ public class OrganSpriteConfig : ScriptableObject
             OrganType.Hand  => (handVariant++ % 2 == 0) ? handSpriteA : handSpriteB,
             OrganType.Eye   => (eyeVariant++  % 2 == 0) ? eyeSpriteA   : eyeSpriteB,
             _               => null
+        };
+    }
+
+    /// <summary>
+    /// 获取该类型的最大心距离。Heart 无限制（返回 int.MaxValue）。
+    /// </summary>
+    public int GetHeartDistance(OrganType type)
+    {
+        return type switch
+        {
+            OrganType.Heart => int.MaxValue,
+            OrganType.Foot  => footMaxHeartDistance,
+            OrganType.Hand  => handMaxHeartDistance,
+            OrganType.Eye   => eyeMaxHeartDistance,
+            _               => 4
         };
     }
 }

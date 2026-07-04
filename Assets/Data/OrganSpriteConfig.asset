@@ -19,3 +19,6 @@ MonoBehaviour:
   handSpriteB: {fileID: 21300000, guid: 1dcb86b5b636b304387b050d0004c59a, type: 3}
   eyeSpriteA: {fileID: 21300000, guid: c9a885b03957eeb4880be6fa0fd394b2, type: 3}
   eyeSpriteB: {fileID: 21300000, guid: 011e5ce1d1666474c96d9c4047eb1d0b, type: 3}
+  footMaxHeartDistance: 4
+  handMaxHeartDistance: 4
+  eyeMaxHeartDistance: 10
