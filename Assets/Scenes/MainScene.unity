@@ -6045,9 +6045,17 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 2010501942}
     - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: hoverColor.a
+      value: 0.47058824
+      objectReference: {fileID: 0}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: emptyUISprite
       value: 
       objectReference: {fileID: 21300000, guid: d52e2ee1663bfd14b885b95468289d81, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: normalColor.a
+      value: 0.78431374
+      objectReference: {fileID: 0}
     - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: targetOrganRenderer
       value: 
@@ -6107,7 +6115,11 @@ PrefabInstance:
     - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 21300000, guid: d52e2ee1663bfd14b885b95468289d81, type: 3}
+      objectReference: {fileID: 21300000, guid: f19b0b43b26d42a4e8d732a8760c0202, type: 3}
+    - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Color.a
+      value: 0.78431374
+      objectReference: {fileID: 0}
     - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Enabled
       value: 1
@@ -12007,9 +12019,17 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1084686688}
     - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: hoverColor.a
+      value: 0.47058824
+      objectReference: {fileID: 0}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: emptyUISprite
       value: 
       objectReference: {fileID: 21300000, guid: 03ead09c0e21edc4bbef86ddbf74f993, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: normalColor.a
+      value: 0.78431374
+      objectReference: {fileID: 0}
     - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: targetOrganRenderer
       value: 
@@ -12069,7 +12089,11 @@ PrefabInstance:
     - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 21300000, guid: 03ead09c0e21edc4bbef86ddbf74f993, type: 3}
+      objectReference: {fileID: 21300000, guid: 8004885a2716c9e45af7738579e55c06, type: 3}
+    - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Color.a
+      value: 0.78431374
+      objectReference: {fileID: 0}
     - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Enabled
       value: 1
@@ -16334,9 +16358,17 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 456100017}
     - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: hoverColor.a
+      value: 0.47058824
+      objectReference: {fileID: 0}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: emptyUISprite
       value: 
       objectReference: {fileID: 21300000, guid: 4a3fca0b0ac120a498e0d948ac73fb31, type: 3}
+    - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: normalColor.a
+      value: 0.78431374
+      objectReference: {fileID: 0}
     - target: {fileID: 7607848584529843760, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: targetOrganRenderer
       value: 
@@ -16396,7 +16428,11 @@ PrefabInstance:
     - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 21300000, guid: c7b78b7db831aae4389c15897f4b5361, type: 3}
+      objectReference: {fileID: 21300000, guid: ffde0fab8313af840ae594551c2c9a15, type: 3}
+    - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
+      propertyPath: m_Color.a
+      value: 0.78431374
+      objectReference: {fileID: 0}
     - target: {fileID: 7810362214015624200, guid: 183f5fd80b851b54080cb746b58a47a4, type: 3}
       propertyPath: m_Enabled
       value: 1

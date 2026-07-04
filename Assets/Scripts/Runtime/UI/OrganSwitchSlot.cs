@@ -4,41 +4,38 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// 场景器官 Sprite 与 UI Sprite 的对应关系。
-///
-/// 例如：
-/// 左手场景 Sprite -> 左手邮票 Sprite
-/// 右手场景 Sprite -> 右手邮票 Sprite
-/// </summary>
-[Serializable]
-public struct OrganSpriteUIBinding
-{
-    [Tooltip("场景中 OrganUnit 实际使用的 Sprite。")]
-    public Sprite organSprite;
-
-    [Tooltip("该场景 Sprite 对应的 UI 邮票 Sprite。")]
-    public Sprite uiSprite;
-}
-
-/// <summary>
-/// 器官切换 UI。
+/// 器官切换插槽。
 ///
 /// 功能：
-/// 1. 根据目标器官当前实际使用的 Sprite，显示对应的 UI 图片；
-/// 2. 鼠标进入时开启 Hover 描边；
-/// 3. 子菜单打开期间保持 Hover 描边；
-/// 4. 点击 Hand / Eye / Foot 后切换目标器官类型；
-/// 5. 当没有可用器官或找不到 Sprite 映射时显示空 UI。
-///
-/// UI 不自行判断左手、右手、左脚、右脚等身份，
-/// 而是直接根据场景对象当前实际使用的 Sprite 进行匹配。
+/// 1. 根据场景器官当前实际应用的 Sprite，显示对应 UI 图片；
+/// 2. 鼠标仅悬停 Slot 区域时改变 Slot 颜色；
+/// 3. 鼠标移动到 SubMenu 时，Slot 恢复 normalColor；
+/// 4. 子菜单打开期间保持器官 Hover 描边；
+/// 5. 点击 Hand / Eye / Foot 切换目标器官类型；
+/// 6. 没有可用器官或找不到映射时显示空 UI。
 /// </summary>
 public class OrganSwitchSlot :
     MonoBehaviour,
     IPointerClickHandler,
     IPointerEnterHandler,
-    IPointerExitHandler
+    IPointerExitHandler,
+    IPointerMoveHandler
 {
+    /// <summary>
+    /// 场景器官 Sprite 与 UI 邮票 Sprite 的映射。
+    ///
+    /// 嵌套在 MonoBehaviour 内，避免 Unity 将其识别为独立组件。
+    /// </summary>
+    [Serializable]
+    private struct OrganSpriteUIBinding
+    {
+        [Tooltip("场景中器官实际使用的 Sprite。")]
+        public Sprite organSprite;
+
+        [Tooltip("该器官 Sprite 对应的 UI 图片。")]
+        public Sprite uiSprite;
+    }
+
     private static readonly int HoverOutlineEnabledId =
         Shader.PropertyToID("_HoverOutlineEnabled");
 
@@ -46,8 +43,8 @@ public class OrganSwitchSlot :
         Shader.PropertyToID("_HoverOutlineColor");
 
     /// <summary>
-    /// 当前处于打开状态的插槽。
-    /// 所有实例共享该引用，保证同时只有一个子菜单打开。
+    /// 当前打开子菜单的插槽。
+    /// 所有实例共享，保证同时只有一个子菜单打开。
     /// </summary>
     private static OrganSwitchSlot currentOpenSlot;
 
@@ -55,13 +52,13 @@ public class OrganSwitchSlot :
 
     [Header("绑定")]
 
-    [Tooltip("该 UI 插槽对应的场景器官。为空时显示空 UI。")]
+    [Tooltip("该插槽对应的场景器官。为空时显示空 UI。")]
     [SerializeField]
     private OrganUnit targetOrgan;
 
     [Tooltip(
-        "目标器官中真正负责显示器官 Sprite 的 SpriteRenderer。" +
-        "为空时会自动从 targetOrgan 子物体中查找。"
+        "目标器官真正负责显示器官图片的 SpriteRenderer。" +
+        "为空时会从 targetOrgan 子物体中自动查找。"
     )]
     [SerializeField]
     private SpriteRenderer targetOrganRenderer;
@@ -71,17 +68,30 @@ public class OrganSwitchSlot :
     [Header("器官 Sprite 对应 UI")]
 
     [Tooltip(
-        "无可用器官、器官没有 Sprite，或者找不到对应关系时显示的空邮票。"
+        "没有器官、器官无 Sprite，或找不到映射时显示的空 UI 图片。" +
+        "如果此字段为空，则会禁用 slotImage。"
     )]
     [SerializeField]
     private Sprite emptyUISprite;
 
     [Tooltip(
-        "场景器官 Sprite 与 UI 邮票 Sprite 的对应关系。" +
-        "左右手、左右脚、左右眼分别配置一条映射。"
+        "场景器官 Sprite 与 UI 图片的映射关系。" +
+        "左右手、左右脚、左右眼、心脏分别配置。"
     )]
     [SerializeField]
     private OrganSpriteUIBinding[] organSpriteUIBindings;
+
+    // ─────────── 悬停检测 ───────────
+
+    [Header("悬停检测")]
+
+    [Tooltip(
+        "只有鼠标真正位于该区域时，Slot 才使用 hoverColor。" +
+        "请拖入 Slot 图片自身的 RectTransform，" +
+        "不要拖入包含 SubMenu 的父节点。"
+    )]
+    [SerializeField]
+    private RectTransform slotHoverRect;
 
     // ─────────── 器官描边 ───────────
 
@@ -94,7 +104,7 @@ public class OrganSwitchSlot :
     [SerializeField]
     private SpriteRenderer[] outlineRenderers;
 
-    [Tooltip("鼠标悬停或子菜单打开时使用的描边颜色。")]
+    [Tooltip("鼠标悬停 Slot 或子菜单打开时使用的描边颜色。")]
     [SerializeField]
     private Color hoverOutlineColor =
         Color.yellow;
@@ -119,14 +129,16 @@ public class OrganSwitchSlot :
 
     [Header("UI 反馈")]
 
-    [Tooltip("用于显示邮票图片的 Image。")]
+    [Tooltip("显示器官邮票图片的 Image。")]
     [SerializeField]
     private Image slotImage;
 
+    [Tooltip("鼠标真正悬停 Slot 区域时的颜色。")]
     [SerializeField]
     private Color hoverColor =
         new Color(1f, 1f, 1f, 0.9f);
 
+    [Tooltip("鼠标不在 Slot 区域时的颜色。")]
     [SerializeField]
     private Color normalColor =
         new Color(1f, 1f, 1f, 0.5f);
@@ -144,8 +156,18 @@ public class OrganSwitchSlot :
     private OrganController controller;
     private MaterialPropertyBlock propertyBlock;
 
+    /// <summary>
+    /// 当前子菜单是否打开。
+    /// </summary>
     private bool isSubMenuOpen;
-    private bool isPointerInside;
+
+    /// <summary>
+    /// 鼠标是否真正位于 slotHoverRect 内。
+    ///
+    /// 不是简单依赖整个父节点的 PointerEnter，
+    /// 因此鼠标进入 SubMenu 时不会继续保持 Slot Hover 颜色。
+    /// </summary>
+    private bool isPointerInsideSlot;
 
     // ─────────── Unity 生命周期 ───────────
 
@@ -154,10 +176,22 @@ public class OrganSwitchSlot :
         propertyBlock =
             new MaterialPropertyBlock();
 
+        /*
+         * 默认没有手动指定悬停区域时，
+         * 使用 slotImage 自身的 RectTransform。
+         */
+        if (slotHoverRect == null &&
+            slotImage != null)
+        {
+            slotHoverRect =
+                slotImage.rectTransform;
+        }
+
         CollectTargetOrganRenderer();
         CollectOutlineRenderers();
 
         SetOutline(false);
+        RefreshSlotColor();
     }
 
     private void Start()
@@ -189,37 +223,42 @@ public class OrganSwitchSlot :
             );
         }
 
-        if (slotImage != null)
-            slotImage.color = normalColor;
+        isSubMenuOpen = false;
+        isPointerInsideSlot = false;
 
+        RefreshSlotColor();
         SetOutline(false);
 
         /*
-         * 初始化时根据场景对象当前实际使用的 Sprite，
-         * 显示对应的 UI 邮票。
+         * 根据场景器官当前实际应用的 Sprite 初始化 UI。
          */
         RefreshSlotImageFromObjectSprite();
     }
 
     private void OnEnable()
     {
+        if (!Application.isPlaying)
+            return;
+
         /*
-         * 物体重新启用时重新刷新，
-         * 避免器官状态在 UI 禁用期间发生变化。
+         * UI 重新启用时刷新一次，
+         * 防止 UI 禁用期间器官 Sprite 已发生改变。
          */
-        if (Application.isPlaying)
-            RefreshSlotImageFromObjectSprite();
+        RefreshSlotColor();
+        RefreshSlotImageFromObjectSprite();
+        RefreshOutlineState();
     }
 
     private void OnDisable()
     {
-        isPointerInside = false;
+        isPointerInsideSlot = false;
         isSubMenuOpen = false;
-
-        SetOutline(false);
 
         if (subMenuPanel != null)
             subMenuPanel.SetActive(false);
+
+        RefreshSlotColor();
+        SetOutline(false);
 
         if (currentOpenSlot == this)
             currentOpenSlot = null;
@@ -258,10 +297,13 @@ public class OrganSwitchSlot :
 
     private void OnValidate()
     {
-        /*
-         * Inspector 中修改目标器官后，
-         * 自动清理不属于新目标器官的 Renderer 引用。
-         */
+        if (slotHoverRect == null &&
+            slotImage != null)
+        {
+            slotHoverRect =
+                slotImage.rectTransform;
+        }
+
         if (targetOrgan == null)
         {
             targetOrganRenderer = null;
@@ -270,7 +312,10 @@ public class OrganSwitchSlot :
         }
 
         if (!Application.isPlaying)
+        {
+            RefreshSlotColor();
             RefreshSlotImageFromObjectSprite();
+        }
     }
 
 #endif
@@ -287,8 +332,14 @@ public class OrganSwitchSlot :
         }
 
         /*
-         * 没有可用器官时不能打开类型切换菜单。
+         * 只有点击真正的 Slot 区域才打开或关闭菜单。
+         *
+         * 点击 SubMenu 按钮时，
+         * 事件可能冒泡到父节点，因此这里必须再次检查位置。
          */
+        if (!IsPointerInsideSlot(eventData))
+            return;
+
         if (!HasAvailableTargetOrgan())
         {
             CloseSubMenu();
@@ -305,24 +356,84 @@ public class OrganSwitchSlot :
     public void OnPointerEnter(
         PointerEventData eventData)
     {
-        isPointerInside = true;
+        RefreshPointerState(eventData);
+    }
 
-        if (slotImage != null)
-            slotImage.color = hoverColor;
-
-        if (HasAvailableTargetOrgan())
-            SetOutline(true);
+    public void OnPointerMove(
+        PointerEventData eventData)
+    {
+        RefreshPointerState(eventData);
     }
 
     public void OnPointerExit(
         PointerEventData eventData)
     {
-        isPointerInside = false;
+        /*
+         * PointerExit 可能只是从 Slot 父节点移动到 SubMenu 子节点，
+         * 因此不能直接设为 false，而是继续根据屏幕坐标判断。
+         */
+        RefreshPointerState(eventData);
+    }
 
-        if (slotImage != null)
-            slotImage.color = normalColor;
+    /// <summary>
+    /// 根据当前鼠标屏幕位置，
+    /// 判断鼠标是否真正位于 Slot 区域。
+    /// </summary>
+    private void RefreshPointerState(
+        PointerEventData eventData)
+    {
+        isPointerInsideSlot =
+            IsPointerInsideSlot(eventData);
 
+        RefreshSlotColor();
         RefreshOutlineState();
+    }
+
+    /// <summary>
+    /// 判断事件中的鼠标位置是否位于 slotHoverRect 内。
+    /// </summary>
+    private bool IsPointerInsideSlot(
+        PointerEventData eventData)
+    {
+        if (slotHoverRect == null ||
+            eventData == null)
+        {
+            return false;
+        }
+
+        Camera eventCamera =
+            eventData.enterEventCamera;
+
+        /*
+         * Overlay Canvas 下 eventCamera 通常为 null，
+         * RectangleContainsScreenPoint 可以正常处理。
+         */
+        return RectTransformUtility
+            .RectangleContainsScreenPoint(
+                slotHoverRect,
+                eventData.position,
+                eventCamera
+            );
+    }
+
+    // ─────────── Slot 颜色 ───────────
+
+    /// <summary>
+    /// 只有鼠标真正位于 Slot 区域时使用 hoverColor。
+    ///
+    /// 鼠标移动到 SubMenu 上时，
+    /// isPointerInsideSlot 会变为 false，
+    /// 因此恢复 normalColor。
+    /// </summary>
+    private void RefreshSlotColor()
+    {
+        if (slotImage == null)
+            return;
+
+        slotImage.color =
+            isPointerInsideSlot
+                ? hoverColor
+                : normalColor;
     }
 
     // ─────────── 子菜单 ───────────
@@ -346,7 +457,17 @@ public class OrganSwitchSlot :
         isSubMenuOpen = true;
         currentOpenSlot = this;
 
+        /*
+         * Slot 颜色只由真实鼠标位置决定，
+         * 子菜单打开本身不会影响 Slot 颜色。
+         */
+        RefreshSlotColor();
+
+        /*
+         * 子菜单打开期间保持器官描边。
+         */
         RefreshOutlineState();
+
         HighlightCurrentType();
     }
 
@@ -360,23 +481,27 @@ public class OrganSwitchSlot :
         if (currentOpenSlot == this)
             currentOpenSlot = null;
 
-        /*
-         * 鼠标仍位于插槽内时保留描边；
-         * 鼠标已经离开则关闭描边。
-         */
+        RefreshSlotColor();
         RefreshOutlineState();
     }
 
     /// <summary>
-    /// Hover 描边在以下任一条件成立时开启：
-    /// 1. 鼠标位于插槽上；
-    /// 2. 该插槽的子菜单已打开。
+    /// 器官描边开启条件：
+    /// 1. 鼠标真正位于 Slot；
+    /// 2. 子菜单当前已打开。
+    ///
+    /// 因此鼠标进入 SubMenu 后：
+    /// Slot 颜色恢复 normalColor，
+    /// 但器官描边仍然保留。
     /// </summary>
     private void RefreshOutlineState()
     {
         bool shouldEnable =
             HasAvailableTargetOrgan() &&
-            (isPointerInside || isSubMenuOpen);
+            (
+                isPointerInsideSlot ||
+                isSubMenuOpen
+            );
 
         SetOutline(shouldEnable);
     }
@@ -384,7 +509,7 @@ public class OrganSwitchSlot :
     // ─────────── 器官有效性 ───────────
 
     /// <summary>
-    /// 判断当前插槽是否拥有可用的目标器官。
+    /// 当前是否存在可用目标器官。
     /// </summary>
     private bool HasAvailableTargetOrgan()
     {
@@ -395,10 +520,11 @@ public class OrganSwitchSlot :
     // ─────────── Renderer 收集 ───────────
 
     /// <summary>
-    /// 自动寻找目标器官中用于显示实际器官 Sprite 的 Renderer。
+    /// 自动查找目标器官中用于显示实际器官 Sprite 的 Renderer。
     ///
-    /// 如果器官下存在多个 SpriteRenderer，
-    /// 推荐在 Inspector 中手动指定，避免自动选择到阴影、特效或辅助 Renderer。
+    /// 如果器官包含多个 SpriteRenderer，
+    /// 推荐在 Inspector 中手动指定，
+    /// 避免自动选中阴影、特效或辅助 Renderer。
     /// </summary>
     private void CollectTargetOrganRenderer()
     {
@@ -415,7 +541,7 @@ public class OrganSwitchSlot :
     }
 
     /// <summary>
-    /// 自动收集目标器官下的全部 SpriteRenderer，
+    /// 自动收集目标器官下全部 SpriteRenderer，
     /// 用于控制 Hover 描边。
     /// </summary>
     private void CollectOutlineRenderers()
@@ -441,32 +567,36 @@ public class OrganSwitchSlot :
     }
 
     /// <summary>
-    /// 重新收集目标器官下的所有相关 Renderer。
+    /// 重新收集器官 Renderer 并刷新 UI。
     ///
-    /// 当器官切换类型时会调用，
-    /// 兼容切换过程中动态创建或销毁 Renderer 的情况。
+    /// 兼容切换器官时动态创建或销毁 Renderer 的情况。
     /// </summary>
     public void RefreshOrganRenderers()
     {
         if (targetOrgan == null)
         {
             targetOrganRenderer = null;
+
             outlineRenderers =
                 Array.Empty<SpriteRenderer>();
 
             RefreshSlotImageFromObjectSprite();
+            RefreshOutlineState();
+
             return;
         }
 
         /*
-         * 重新寻找主 SpriteRenderer。
-         *
-         * 若 Inspector 已明确指定主 Renderer，
-         * 且该 Renderer 仍然属于当前目标器官，则保留。
+         * 如果当前主 Renderer 不存在，
+         * 或已经不属于目标器官，则重新查找。
          */
         if (targetOrganRenderer == null ||
-            !targetOrganRenderer.transform.IsChildOf(
-                targetOrgan.transform
+            (
+                targetOrganRenderer.transform !=
+                    targetOrgan.transform &&
+                !targetOrganRenderer.transform.IsChildOf(
+                    targetOrgan.transform
+                )
             ))
         {
             targetOrganRenderer =
@@ -480,12 +610,12 @@ public class OrganSwitchSlot :
                 includeInactive: true
             );
 
-        RefreshOutlineState();
         RefreshSlotImageFromObjectSprite();
+        RefreshOutlineState();
     }
 
     /// <summary>
-    /// 保留旧接口名称，兼容其他脚本可能存在的调用。
+    /// 保留旧接口名，兼容已有外部调用。
     /// </summary>
     public void RefreshOutlineRenderers()
     {
@@ -495,16 +625,16 @@ public class OrganSwitchSlot :
     // ─────────── UI Sprite 刷新 ───────────
 
     /// <summary>
-    /// 根据场景中器官当前实际应用的 Sprite，
-    /// 查找并显示对应的 UI 邮票 Sprite。
+    /// 根据场景器官当前实际使用的 Sprite，
+    /// 查找并应用对应的 UI Sprite。
     ///
-    /// 以下情况显示 emptyUISprite：
+    /// 以下情况显示空 UI：
     /// 1. 没有目标器官；
     /// 2. 目标器官未激活；
-    /// 3. 找不到负责显示的 SpriteRenderer；
-    /// 4. 当前场景 Sprite 为空；
+    /// 3. 找不到 SpriteRenderer；
+    /// 4. Obj 当前 Sprite 为空；
     /// 5. 映射表中没有对应项；
-    /// 6. 对应的 UI Sprite 为空。
+    /// 6. 对应 UI Sprite 为空。
     /// </summary>
     public void RefreshSlotImageFromObjectSprite()
     {
@@ -546,33 +676,43 @@ public class OrganSwitchSlot :
                 continue;
             }
 
-            slotImage.sprite =
-                binding.uiSprite != null
-                    ? binding.uiSprite
-                    : emptyUISprite;
+            Sprite targetUISprite =
+                binding.uiSprite;
 
-            slotImage.enabled =
-                slotImage.sprite != null;
+            if (targetUISprite == null)
+            {
+                SetEmptySlotImage();
+                return;
+            }
+
+            slotImage.sprite =
+                targetUISprite;
+
+            slotImage.enabled = true;
 
             return;
         }
 
         /*
-         * 当前场景 Sprite 没有配置对应的 UI 图片。
+         * Obj 当前 Sprite 没有配置对应 UI。
          */
         SetEmptySlotImage();
     }
 
     /// <summary>
-    /// 显示空邮票。
-    /// 如果 emptyUISprite 本身为空，则直接隐藏 Image。
+    /// 显示空 UI。
+    ///
+    /// 如果 emptyUISprite 为空，
+    /// 则关闭 Image 组件显示。
     /// </summary>
     private void SetEmptySlotImage()
     {
         if (slotImage == null)
             return;
 
-        slotImage.sprite = emptyUISprite;
+        slotImage.sprite =
+            emptyUISprite;
+
         slotImage.enabled =
             emptyUISprite != null;
     }
@@ -586,9 +726,10 @@ public class OrganSwitchSlot :
     /// _HoverOutlineEnabled
     /// _HoverOutlineColor
     ///
-    /// 不会覆盖 MapGrid 设置的活动器官描边参数。
+    /// 不修改 MapGrid 使用的活动器官描边参数。
     /// </summary>
-    public void SetOutline(bool enabled)
+    public void SetOutline(
+        bool enabled)
     {
         if (propertyBlock == null ||
             outlineRenderers == null)
@@ -615,7 +756,7 @@ public class OrganSwitchSlot :
             }
 
             /*
-             * 先读取 Renderer 已有属性块，
+             * 读取现有 PropertyBlock，
              * 保留 Active 描边及其他逐 Renderer 参数。
              */
             propertyBlock.Clear();
@@ -646,7 +787,7 @@ public class OrganSwitchSlot :
         propertyBlock.Clear();
     }
 
-    // ─────────── 类型切换 ───────────
+    // ─────────── 器官类型切换 ───────────
 
     private void SwitchToHand()
     {
@@ -677,6 +818,7 @@ public class OrganSwitchSlot :
         {
             SetEmptySlotImage();
             CloseSubMenu();
+
             return;
         }
 
@@ -690,19 +832,11 @@ public class OrganSwitchSlot :
             return;
 
         /*
-         * OrganController.SwitchOrganType 会调用：
-         *
-         * targetOrgan.SwitchOrganType(type)
-         *
-         * 因此执行到这里时，场景器官的实际 Sprite
-         * 应当已经完成更新。
+         * SwitchOrganType 内部已经更新 Obj 的 Sprite。
+         * 此处重新读取 Obj 最终实际应用的 Sprite，
+         * 再根据映射表刷新 UI。
          */
         RefreshOrganRenderers();
-
-        /*
-         * 读取场景对象最终使用的 Sprite，
-         * 根据映射表更新 UI。
-         */
         RefreshSlotImageFromObjectSprite();
 
         CloseSubMenu();
@@ -757,13 +891,14 @@ public class OrganSwitchSlot :
             graphic.color;
 
         color.a = alpha;
+
         graphic.color = color;
     }
 
     // ─────────── 外部接口 ───────────
 
     /// <summary>
-    /// 运行时为该插槽设置新的目标器官。
+    /// 运行时设置新的目标器官。
     ///
     /// 传入 null 时显示空 UI。
     /// </summary>
@@ -774,6 +909,7 @@ public class OrganSwitchSlot :
 
         targetOrgan = organ;
         targetOrganRenderer = null;
+
         outlineRenderers =
             Array.Empty<SpriteRenderer>();
 
@@ -792,8 +928,8 @@ public class OrganSwitchSlot :
     }
 
     /// <summary>
-    /// 外部系统在器官 Sprite 发生变化后可以调用该方法，
-    /// 同步刷新 Renderer、描边和 UI 邮票。
+    /// 外部系统在器官 Sprite 改变后调用，
+    /// 用于同步刷新 Renderer、UI 图片和描边状态。
     /// </summary>
     public void NotifyOrganSpriteChanged()
     {
