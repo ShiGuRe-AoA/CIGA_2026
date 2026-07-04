@@ -40,7 +40,7 @@ Material:
     - _PixelSnap: 0
     - _UVDetailFrequency: 21
     - _UVFrequency: 8
-    - _UVStrength: 0.002
+    - _UVStrength: 0.004
     - _VertexFrequency: 3
     - _VertexStrength: 0.01
     m_Colors:
