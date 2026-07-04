@@ -2897,7 +2897,8 @@ MonoBehaviour:
   detectEye: 0
   detectSceneObject: 0
   detectAnyPushable: 0
-  mechanisms: []
+  mechanisms:
+  - {fileID: 399155263}
 --- !u!1001 &2010501935
 PrefabInstance:
   m_ObjectHideFlags: 0
