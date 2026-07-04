@@ -11,7 +11,8 @@ using UnityEngine.Tilemaps;
 /// 此外负责维护：
 /// 1. Impact Trigger 注册的动态阻挡格；
 /// 2. 场景中的坑洞格；
-/// 3. 普通行走与特殊可推动物进入坑洞的不同判定。
+/// 3. 普通行走与特殊可推动物进入坑洞的不同判定；
+/// 4. 当前活动器官列表与活动器官描边。
 ///
 /// Tilemap 仅用于定义地图数据，不参与实际游戏渲染。
 /// </summary>
@@ -23,11 +24,27 @@ public class MapGrid : MonoBehaviour
         Wall,
     }
 
+    // ─────────── Shader 属性 ───────────
+
+    private static readonly int ActiveOutlineEnabledId =
+        Shader.PropertyToID("_ActiveOutlineEnabled");
+
+    private static readonly int ActiveOutlineColorId =
+        Shader.PropertyToID("_ActiveOutlineColor");
+
     [Header("地图数据")]
-    [SerializeField] private Tilemap tilemap;
+    [SerializeField]
+    private Tilemap tilemap;
+
+    [Header("活动器官描边")]
+    [Tooltip("由 RegisterActiveOrgan 注册的器官所使用的描边颜色。")]
+    [SerializeField]
+    private Color activeOrganOutlineColor =
+        Color.white;
 
     [Header("Gizmos 可视化")]
-    [SerializeField] private bool showGizmos = true;
+    [SerializeField]
+    private bool showGizmos = true;
 
     [SerializeField]
     private Color wallColor =
@@ -45,7 +62,8 @@ public class MapGrid : MonoBehaviour
     private Color unfilledPitColor =
         new Color(0.25f, 0.1f, 0.05f, 0.55f);
 
-    [SerializeField] private bool showWireframe = true;
+    [SerializeField]
+    private bool showWireframe = true;
 
     // ─────────── 基础网格数据 ───────────
 
@@ -71,12 +89,33 @@ public class MapGrid : MonoBehaviour
     private readonly Dictionary<Vector3Int, PitMechanism> pits =
         new Dictionary<Vector3Int, PitMechanism>();
 
+    // ─────────── 活动器官数据 ───────────
+
     /// <summary>
-    /// 当前被标记为激活的器官。
-    /// 例如：当前操作脚、当前视野眼睛、正在抓取物体的手。
+    /// 当前被标记为活动的器官。
+    ///
+    /// 必须通过 RegisterActiveOrgan、
+    /// UnregisterActiveOrgan 或 ClearActiveOrgans 修改，
+    /// 以保证列表状态和描边状态同步。
     /// </summary>
-    public List<OrganUnit> activeOrgans =
+    private readonly List<OrganUnit> activeOrgans =
         new List<OrganUnit>();
+
+    /// <summary>
+    /// 缓存每个器官下的 SpriteRenderer。
+    /// </summary>
+    private readonly Dictionary<OrganUnit, SpriteRenderer[]>
+        organRendererCache =
+            new Dictionary<OrganUnit, SpriteRenderer[]>();
+
+    /// <summary>
+    /// 重复使用的 MaterialPropertyBlock。
+    /// 修改前会先读取目标 Renderer 已有的属性块，
+    /// 因此不会覆盖 Hover 描边等其他逐 Renderer 参数。
+    /// </summary>
+    private MaterialPropertyBlock outlinePropertyBlock;
+
+    // ─────────── 公开属性 ───────────
 
     /// <summary>地图宽度，单位为格。</summary>
     public int Width { get; private set; }
@@ -87,8 +126,9 @@ public class MapGrid : MonoBehaviour
     /// <summary>地图包围盒最小格坐标。</summary>
     public Vector3Int Origin => gridBounds.min;
 
-    /// <summary>当前激活的器官列表。</summary>
-    public IReadOnlyList<OrganUnit> ActiveOrgans => activeOrgans;
+    /// <summary>当前活动器官的只读列表。</summary>
+    public IReadOnlyList<OrganUnit> ActiveOrgans =>
+        activeOrgans;
 
     /// <summary>
     /// 当移动被某格阻挡时触发。
@@ -96,39 +136,251 @@ public class MapGrid : MonoBehaviour
     /// </summary>
     public event System.Action<Vector3Int> OnCellBlocked;
 
+    private void Awake()
+    {
+        outlinePropertyBlock =
+            new MaterialPropertyBlock();
+
+        Initialize();
+    }
+
+    private void OnDisable()
+    {
+        ClearActiveOrgans();
+    }
+
+    private void OnDestroy()
+    {
+        ClearActiveOrgans();
+        organRendererCache.Clear();
+    }
+
+    // ─────────── 活动器官注册 ───────────
+
     /// <summary>
-    /// 将指定器官标记为激活。
+    /// 将器官注册为活动器官，并开启绿色活动描边。
     /// </summary>
     public void RegisterActiveOrgan(OrganUnit organ)
     {
-        if (organ == null || activeOrgans.Contains(organ))
+        if (organ == null)
+            return;
+
+        if (activeOrgans.Contains(organ))
             return;
 
         activeOrgans.Add(organ);
+
+        SetActiveOrganOutline(
+            organ,
+            enabled: true
+        );
     }
 
     /// <summary>
-    /// 将指定器官从激活列表移除。
+    /// 将器官从活动列表移除，并关闭活动描边。
+    ///
+    /// 这里只关闭 _ActiveOutlineEnabled，
+    /// 不会影响 OrganSwitchSlot 设置的 Hover 描边。
     /// </summary>
     public void UnregisterActiveOrgan(OrganUnit organ)
     {
         if (organ == null)
             return;
 
-        activeOrgans.Remove(organ);
+        if (!activeOrgans.Remove(organ))
+            return;
+
+        SetActiveOrganOutline(
+            organ,
+            enabled: false
+        );
     }
 
     /// <summary>
-    /// 清空所有激活器官标记。
+    /// 关闭所有活动器官的活动描边并清空列表。
     /// </summary>
     public void ClearActiveOrgans()
     {
+        for (int i = activeOrgans.Count - 1;
+             i >= 0;
+             i--)
+        {
+            SetActiveOrganOutline(
+                activeOrgans[i],
+                enabled: false
+            );
+        }
+
         activeOrgans.Clear();
     }
 
-    private void Awake()
+    /// <summary>
+    /// 判断器官是否处于活动列表中。
+    /// </summary>
+    public bool IsActiveOrgan(OrganUnit organ)
     {
-        Initialize();
+        return organ != null &&
+               activeOrgans.Contains(organ);
+    }
+
+    /// <summary>
+    /// 设置器官下所有 SpriteRenderer 的活动描边参数。
+    ///
+    /// MaterialPropertyBlock 不会实例化材质，
+    /// 也不会影响共用同一材质的其他器官。
+    /// </summary>
+    private void SetActiveOrganOutline(
+        OrganUnit organ,
+        bool enabled)
+    {
+        if (organ == null)
+            return;
+
+        SpriteRenderer[] renderers =
+            GetOrganRenderers(organ);
+
+        if (renderers == null ||
+            renderers.Length == 0)
+        {
+            return;
+        }
+
+        foreach (SpriteRenderer spriteRenderer in renderers)
+        {
+            if (spriteRenderer == null)
+                continue;
+
+            Material sharedMaterial =
+                spriteRenderer.sharedMaterial;
+
+            if (sharedMaterial == null)
+                continue;
+
+            if (!sharedMaterial.HasProperty(
+                    ActiveOutlineEnabledId))
+            {
+                continue;
+            }
+
+            /*
+             * 必须先读取已有属性块，保留：
+             * _HoverOutlineEnabled
+             * _HoverOutlineColor
+             * 以及其他脚本设置的 Renderer 参数。
+             */
+            outlinePropertyBlock.Clear();
+
+            spriteRenderer.GetPropertyBlock(
+                outlinePropertyBlock
+            );
+
+            outlinePropertyBlock.SetFloat(
+                ActiveOutlineEnabledId,
+                enabled ? 1f : 0f
+            );
+
+            if (sharedMaterial.HasProperty(
+                    ActiveOutlineColorId))
+            {
+                outlinePropertyBlock.SetColor(
+                    ActiveOutlineColorId,
+                    activeOrganOutlineColor
+                );
+            }
+
+            spriteRenderer.SetPropertyBlock(
+                outlinePropertyBlock
+            );
+        }
+
+        outlinePropertyBlock.Clear();
+    }
+
+    /// <summary>
+    /// 获取并缓存器官下的全部 SpriteRenderer。
+    ///
+    /// includeInactive 为 true，
+    /// 因为器官切换类型时可能通过启用、禁用子物体
+    /// 改变当前显示的 Sprite。
+    /// </summary>
+    private SpriteRenderer[] GetOrganRenderers(
+        OrganUnit organ)
+    {
+        if (organ == null)
+            return null;
+
+        if (organRendererCache.TryGetValue(
+                organ,
+                out SpriteRenderer[] cachedRenderers))
+        {
+            return cachedRenderers;
+        }
+
+        SpriteRenderer[] renderers =
+            organ.GetComponentsInChildren<SpriteRenderer>(
+                includeInactive: true
+            );
+
+        organRendererCache[organ] =
+            renderers;
+
+        return renderers;
+    }
+
+    /// <summary>
+    /// 清除指定器官的 Renderer 缓存。
+    ///
+    /// 如果运行时新增、删除或替换了 SpriteRenderer，
+    /// 可以在切换完成后调用该方法。
+    /// </summary>
+    public void RefreshOrganRendererCache(
+        OrganUnit organ)
+    {
+        if (organ == null)
+            return;
+
+        organRendererCache.Remove(organ);
+
+        if (activeOrgans.Contains(organ))
+        {
+            SetActiveOrganOutline(
+                organ,
+                enabled: true
+            );
+        }
+    }
+
+    /// <summary>
+    /// 清理已经被销毁的活动器官。
+    /// </summary>
+    public void CleanupActiveOrgans()
+    {
+        for (int i = activeOrgans.Count - 1;
+             i >= 0;
+             i--)
+        {
+            if (activeOrgans[i] == null)
+                activeOrgans.RemoveAt(i);
+        }
+
+        List<OrganUnit> invalidKeys = null;
+
+        foreach (var pair in organRendererCache)
+        {
+            if (pair.Key != null)
+                continue;
+
+            invalidKeys ??=
+                new List<OrganUnit>();
+
+            invalidKeys.Add(pair.Key);
+        }
+
+        if (invalidKeys == null)
+            return;
+
+        foreach (OrganUnit key in invalidKeys)
+            organRendererCache.Remove(key);
     }
 
     // ─────────── 初始化 ───────────
@@ -143,27 +395,35 @@ public class MapGrid : MonoBehaviour
     public void Initialize()
     {
         if (tilemap == null)
-            tilemap = GetComponentInChildren<Tilemap>();
+        {
+            tilemap =
+                GetComponentInChildren<Tilemap>();
+        }
 
         if (tilemap == null)
         {
             Debug.LogError(
-                "[MapGrid] 未找到 Tilemap 组件，请在 Inspector 中指定。"
+                "[MapGrid] 未找到 Tilemap 组件，" +
+                "请在 Inspector 中指定。"
             );
+
             return;
         }
 
-        grid = tilemap.layoutGrid;
+        grid =
+            tilemap.layoutGrid;
 
         if (grid == null)
         {
             Debug.LogError(
                 "[MapGrid] Tilemap 所属层级中未找到 Grid 组件。"
             );
+
             return;
         }
 
-        gridBounds = tilemap.cellBounds;
+        gridBounds =
+            tilemap.cellBounds;
 
         if (gridBounds.size.x == 0 ||
             gridBounds.size.y == 0)
@@ -171,25 +431,32 @@ public class MapGrid : MonoBehaviour
             Debug.LogWarning(
                 "[MapGrid] Tilemap 中未绘制任何 Tile，网格为空。"
             );
+
             return;
         }
 
-        Width = gridBounds.size.x;
-        Height = gridBounds.size.y;
+        Width =
+            gridBounds.size.x;
 
-        cells = new CellType[Width, Height];
+        Height =
+            gridBounds.size.y;
+
+        cells =
+            new CellType[Width, Height];
 
         for (int x = 0; x < Width; x++)
         {
             for (int y = 0; y < Height; y++)
             {
-                Vector3Int cellPos = new Vector3Int(
-                    gridBounds.xMin + x,
-                    gridBounds.yMin + y,
-                    0
-                );
+                Vector3Int cellPos =
+                    new Vector3Int(
+                        gridBounds.xMin + x,
+                        gridBounds.yMin + y,
+                        0
+                    );
 
-                TileBase tile = tilemap.GetTile(cellPos);
+                TileBase tile =
+                    tilemap.GetTile(cellPos);
 
                 cells[x, y] =
                     tile != null
@@ -220,11 +487,16 @@ public class MapGrid : MonoBehaviour
         if (cells == null)
             return CellType.Wall;
 
-        int x = cellPos.x - gridBounds.xMin;
-        int y = cellPos.y - gridBounds.yMin;
+        int x =
+            cellPos.x - gridBounds.xMin;
 
-        if (x < 0 || x >= Width ||
-            y < 0 || y >= Height)
+        int y =
+            cellPos.y - gridBounds.yMin;
+
+        if (x < 0 ||
+            x >= Width ||
+            y < 0 ||
+            y >= Height)
         {
             return CellType.Wall;
         }
@@ -234,11 +506,6 @@ public class MapGrid : MonoBehaviour
 
     /// <summary>
     /// 判断普通单位能否进入指定格子。
-    ///
-    /// 必须满足：
-    /// 1. 基础格子为 Empty；
-    /// 2. 不属于动态阻挡格；
-    /// 3. 不存在未填平坑洞。
     /// </summary>
     public bool IsWalkable(Vector3Int cellPos)
     {
@@ -248,7 +515,8 @@ public class MapGrid : MonoBehaviour
         if (IsUnfilledPit(cellPos))
             return false;
 
-        return GetCell(cellPos) == CellType.Empty;
+        return GetCell(cellPos) ==
+               CellType.Empty;
     }
 
     /// <summary>
@@ -264,8 +532,11 @@ public class MapGrid : MonoBehaviour
         if (pushable == null)
             return false;
 
-        if (GetCell(targetPos) != CellType.Empty)
+        if (GetCell(targetPos) !=
+            CellType.Empty)
+        {
             return false;
+        }
 
         if (blockerCells.Contains(targetPos))
             return false;
@@ -277,7 +548,6 @@ public class MapGrid : MonoBehaviour
             return true;
         }
 
-        // 已填平的坑按照普通空地处理。
         if (pit.IsFilled)
             return true;
 
@@ -317,14 +587,14 @@ public class MapGrid : MonoBehaviour
 
     /// <summary>
     /// 注册一个坑洞。
-    /// 由 PitMechanism 初始化时调用。
     /// </summary>
     public void RegisterPit(PitMechanism pit)
     {
         if (pit == null)
             return;
 
-        Vector3Int cell = pit.GridPos;
+        Vector3Int cell =
+            pit.GridPos;
 
         if (pits.TryGetValue(
                 cell,
@@ -338,7 +608,8 @@ public class MapGrid : MonoBehaviour
             );
         }
 
-        pits[cell] = pit;
+        pits[cell] =
+            pit;
     }
 
     /// <summary>
@@ -349,7 +620,8 @@ public class MapGrid : MonoBehaviour
         if (pit == null)
             return;
 
-        Vector3Int cell = pit.GridPos;
+        Vector3Int cell =
+            pit.GridPos;
 
         if (!pits.TryGetValue(
                 cell,
@@ -369,14 +641,18 @@ public class MapGrid : MonoBehaviour
         Vector3Int cellPos,
         out PitMechanism pit)
     {
-        if (!pits.TryGetValue(cellPos, out pit))
+        if (!pits.TryGetValue(
+                cellPos,
+                out pit))
+        {
             return false;
+        }
 
         if (pit != null)
             return true;
 
-        // 清理已经被销毁的引用。
         pits.Remove(cellPos);
+
         return false;
     }
 
@@ -395,10 +671,7 @@ public class MapGrid : MonoBehaviour
     /// <summary>
     /// 处理可推动物进入特殊格子后的结算。
     ///
-    /// 当前只处理坑洞。
-    ///
-    /// 返回 true 表示可推动物已经被该特殊格子消耗，
-    /// 调用方应将它从位置索引中注销并隐藏或销毁。
+    /// 返回 true 表示可推动物已被特殊格子消耗。
     /// </summary>
     public bool ResolvePushableEnteredCell(
         PushableObject pushable,
@@ -461,44 +734,58 @@ public class MapGrid : MonoBehaviour
             return;
         }
 
-        Vector3 cellSize = grid.cellSize;
+        Vector3 cellSize =
+            grid.cellSize;
 
         for (int x = 0; x < Width; x++)
         {
             for (int y = 0; y < Height; y++)
             {
-                Vector3Int cellPos = new Vector3Int(
-                    gridBounds.xMin + x,
-                    gridBounds.yMin + y,
-                    0
-                );
+                Vector3Int cellPos =
+                    new Vector3Int(
+                        gridBounds.xMin + x,
+                        gridBounds.yMin + y,
+                        0
+                    );
 
                 Vector3 center =
                     grid.GetCellCenterWorld(cellPos);
 
                 bool isWall =
-                    cells[x, y] == CellType.Wall;
+                    cells[x, y] ==
+                    CellType.Wall;
 
                 if (isWall)
                 {
-                    Gizmos.color = wallColor;
+                    Gizmos.color =
+                        wallColor;
                 }
                 else if (IsUnfilledPit(cellPos))
                 {
-                    Gizmos.color = unfilledPitColor;
+                    Gizmos.color =
+                        unfilledPitColor;
                 }
                 else
                 {
-                    Gizmos.color = emptyColor;
+                    Gizmos.color =
+                        emptyColor;
                 }
 
-                Gizmos.DrawCube(center, cellSize);
+                Gizmos.DrawCube(
+                    center,
+                    cellSize
+                );
 
                 if (!showWireframe)
                     continue;
 
-                Gizmos.color = gridLineColor;
-                DrawWireCubeGizmo(center, cellSize);
+                Gizmos.color =
+                    gridLineColor;
+
+                DrawWireCubeGizmo(
+                    center,
+                    cellSize
+                );
             }
         }
     }
@@ -507,19 +794,40 @@ public class MapGrid : MonoBehaviour
         Vector3 center,
         Vector3 size)
     {
-        Vector3 half = size * 0.5f;
+        Vector3 half =
+            size * 0.5f;
 
         Vector3 topLeft =
-            center + new Vector3(-half.x, half.y, 0f);
+            center +
+            new Vector3(
+                -half.x,
+                half.y,
+                0f
+            );
 
         Vector3 topRight =
-            center + new Vector3(half.x, half.y, 0f);
+            center +
+            new Vector3(
+                half.x,
+                half.y,
+                0f
+            );
 
         Vector3 bottomLeft =
-            center + new Vector3(-half.x, -half.y, 0f);
+            center +
+            new Vector3(
+                -half.x,
+                -half.y,
+                0f
+            );
 
         Vector3 bottomRight =
-            center + new Vector3(half.x, -half.y, 0f);
+            center +
+            new Vector3(
+                half.x,
+                -half.y,
+                0f
+            );
 
         Gizmos.DrawLine(topLeft, topRight);
         Gizmos.DrawLine(topRight, bottomRight);

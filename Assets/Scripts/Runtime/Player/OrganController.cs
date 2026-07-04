@@ -62,6 +62,17 @@ public class OrganController : MonoBehaviour
     // 回缩动画播放期间锁定输入，防止逻辑位置与视觉位置错位时继续操作。
     private bool isPullingBack;
 
+    /// <summary>
+    /// 正在执行允许器官临时超距的移动，例如蓄力踢。
+    /// 此期间位置变化不会触发普通的被动超距回弹。
+    /// </summary>
+    private bool suppressPassiveRangeRecovery;
+
+    /// <summary>
+    /// 已请求一次被动超距恢复，避免同一推动链中的多个位置事件重复启动。
+    /// </summary>
+    private bool passiveRecoveryPending;
+
     public OrganUnit HeartUnit => heartUnit;
 
     public OrganUnit ActiveFoot =>
@@ -194,13 +205,129 @@ public class OrganController : MonoBehaviour
         );
     }
 
-    /// <summary>位置变化回调，用于保持 GridPositionIndex 同步。</summary>
+    /// <summary>
+    /// 位置变化回调：
+    /// 1. 同步位置索引；
+    /// 2. 检查任意器官是否因外力移动而超出心距；
+    /// 3. 超距时在本帧结束后触发回缩。
+    /// </summary>
     private void OnPushableMoved(
         PushableObject obj,
         Vector3Int oldPos,
         Vector3Int newPos)
     {
         posIndex.OnMoved(obj, oldPos, newPos);
+
+        if (suppressPassiveRangeRecovery)
+            return;
+
+        if (isPullingBack)
+            return;
+
+        if (obj is not OrganUnit movedOrgan)
+            return;
+
+        /*
+         * 心脏移动后，可能导致多个器官同时超距。
+         * 普通器官移动后，则检查该器官自身是否超距。
+         */
+        bool needsRecovery =
+            movedOrgan == heartUnit
+                ? HasAnyOutOfRangeOrgan()
+                : movedOrgan.IsOutOfHeartRange();
+
+        if (!needsRecovery)
+            return;
+
+        RequestPassiveRangeRecovery();
+    }
+
+    /// <summary>
+    /// 检查是否存在超出自身最大心距的非心脏器官。
+    /// </summary>
+    private bool HasAnyOutOfRangeOrgan()
+    {
+        foreach (OrganUnit organ in organs)
+        {
+            if (organ == null || organ == heartUnit)
+                continue;
+
+            if (organ.IsOutOfHeartRange())
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 请求一次被动超距恢复。
+    /// 同一帧内多次位置变化只会产生一个恢复请求。
+    /// </summary>
+    private void RequestPassiveRangeRecovery()
+    {
+        if (passiveRecoveryPending)
+            return;
+
+        passiveRecoveryPending = true;
+
+        StartCoroutine(
+            RecoverPassiveOutOfRangeOrgansAtEndOfFrame()
+        );
+    }
+
+    private System.Collections.IEnumerator
+        RecoverPassiveOutOfRangeOrgansAtEndOfFrame()
+    {
+        yield return new WaitForEndOfFrame();
+
+        passiveRecoveryPending = false;
+
+        if (suppressPassiveRangeRecovery)
+            yield break;
+
+        if (isPullingBack)
+            yield break;
+
+        if (!HasAnyOutOfRangeOrgan())
+            yield break;
+
+        RecoverPassiveOutOfRangeOrgans();
+    }
+
+    /// <summary>
+    /// 处理传送带、推动链等外力造成的器官超距。
+    ///
+    /// 与蓄力踢不同：
+    /// 被动超距只回到 MaxHeartDistance 范围内，
+    /// 不回缩到 KickReturnHeartDistance。
+    /// </summary>
+    private void RecoverPassiveOutOfRangeOrgans()
+    {
+        if (useNewPullLogic)
+        {
+            List<Dictionary<OrganUnit, Vector3Int>> rounds =
+                BuildPullRounds_New(
+                    pullToTightState: false
+                );
+
+            PlayPullRounds_New(
+                rounds,
+                "被动超距回弹"
+            );
+
+            return;
+        }
+
+        isPullingBack = true;
+
+        try
+        {
+            PullOutOfRangeOrgans();
+        }
+        finally
+        {
+            isPullingBack = false;
+        }
     }
 
     /// <summary>
@@ -497,22 +624,22 @@ public class OrganController : MonoBehaviour
     /// </param>
     /// <returns>物体是否成功移动。</returns>
     private bool TryMoveWithPush(
-        PushableObject obj,
-        Vector3Int dir,
-        bool canPush,
-        float thisDuration,
-        bool bypassHeart = false,
-        Ease ease = Ease.InOutQuad)
+    PushableObject obj,
+    Vector3Int dir,
+    bool canPush,
+    float thisDuration,
+    bool bypassHeart = false,
+    Ease ease = Ease.InOutQuad)
     {
         var context =
             new PushContext(this, posIndex);
 
-        float? duration = thisDuration > 0f ? thisDuration : null;
-        Vector3Int heartOldPos = heartUnit != null
-            ? heartUnit.GridPos
-            : Vector3Int.zero;
+        float? duration =
+            thisDuration > 0f
+                ? thisDuration
+                : null;
 
-        bool moved = context.TryMoveWithPush(
+        return context.TryMoveWithPush(
             obj,
             dir,
             canPush,
@@ -520,17 +647,8 @@ public class OrganController : MonoBehaviour
             ease,
             duration
         );
-
-        // 心被任何移动计划带动 → 触发超距器官拉回。
-        if (moved &&
-            heartUnit != null &&
-            heartUnit.GridPos != heartOldPos)
-        {
-            PullOutOfRangeOrgansByCurrentMode();
-        }
-
-        return moved;
     }
+
 
     /// <summary>
     /// 外部推动入口 — 供传动带等场景物体调用。
@@ -592,49 +710,57 @@ public class OrganController : MonoBehaviour
         bool hitAnything = false;
         float totalSteps = pushDistance;
 
-        for (int step = 0; step < pushDistance; step++)
+        suppressPassiveRangeRecovery = true;
+
+        try
         {
-            Vector3Int scanPos =
-                foot.GridPos + kickDir;
-
-            PushableObject firstInLine = null;
-
-            while (Grid.IsWalkable(scanPos))
+            for (int step = 0; step < pushDistance; step++)
             {
-                firstInLine =
-                    GetPushableAt(scanPos);
+                Vector3Int scanPos =
+                    foot.GridPos + kickDir;
 
-                if (firstInLine != null)
+                PushableObject firstInLine = null;
+
+                while (Grid.IsWalkable(scanPos))
+                {
+                    firstInLine =
+                        GetPushableAt(scanPos);
+
+                    if (firstInLine != null)
+                        break;
+
+                    scanPos += kickDir;
+                }
+
+                if (firstInLine == null)
                     break;
 
-                scanPos += kickDir;
+                float t = totalSteps > 1f
+                    ? step / (totalSteps - 1f)
+                    : 0f;
+
+                float stepDuration = Mathf.Lerp(
+                    minKickDuration,
+                    firstInLine.MoveDuration,
+                    t
+                );
+
+                if (!TryMoveWithPush(
+                        firstInLine,
+                        kickDir,
+                        canPush: true,
+                        thisDuration: stepDuration,
+                        bypassHeart: true))
+                {
+                    break;
+                }
+
+                hitAnything = true;
             }
-
-            if (firstInLine == null)
-                break;
-
-            // 速度衰减：从 minKickDuration 线性过渡到物体自身 MoveDuration
-            float t = totalSteps > 1f
-                ? step / (totalSteps - 1f)
-                : 0f;
-
-            float stepDuration = Mathf.Lerp(
-                minKickDuration,
-                firstInLine.MoveDuration,
-                t
-            );
-
-            if (!TryMoveWithPush(
-                    firstInLine,
-                    kickDir,
-                    canPush: true,
-                    thisDuration: stepDuration,
-                    bypassHeart: true))
-            {
-                break;
-            }
-
-            hitAnything = true;
+        }
+        finally
+        {
+            suppressPassiveRangeRecovery = false;
         }
 
         if (!hitAnything)
@@ -645,7 +771,6 @@ public class OrganController : MonoBehaviour
             $"方向 {kickDir} x{pushDistance}"
         );
 
-        // 取消尚未执行或仍在播放的旧版滑回 Sequence。
         pullBackSequence?.Kill(complete: false);
         pullBackSequence = null;
 
