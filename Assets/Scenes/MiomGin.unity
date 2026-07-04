@@ -206,6 +206,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: 2297eb4fceb3e2f4da350bcffde927e5, type: 3}
+    - target: {fileID: 2896980818727633481, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: a46e8e336002b374d970a91c1eb1ce06, type: 2}
     - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Lens.OrthographicSize
       value: 4
@@ -472,6 +476,48 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4393808019307510072, guid: 63f4d4a88c14eeb46a2ec3b06f423498, type: 3}
   m_PrefabInstance: {fileID: 6797315101861467660}
   m_PrefabAsset: {fileID: 0}
+<<<<<<< HEAD
+=======
+  m_GameObject: {fileID: 120264428}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -2.1269631, y: 1.0728943, z: 0.0061084246}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 157974038}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &120264431
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 120264428}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cd75ea2bca602942a76ad75a45bec41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  moveDuration: 0.5
+  visualRenderer: {fileID: 120264429}
+--- !u!114 &120264432
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 120264428}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 09967dae94fc11b4abe0376e7bf3008f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  moveDuration: 0.5
+  visualRenderer: {fileID: 120264429}
+  canFillPit: 1
+  fillAudioSource: {fileID: 0}
+>>>>>>> 7bafb0487f97218ecdd27c4e2b0e88ab1ad9949e
 --- !u!1 &157974036
 GameObject:
   m_ObjectHideFlags: 0
@@ -607,6 +653,10 @@ PrefabInstance:
       propertyPath: kickReturnHeartDistance
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: 2896980818727633481, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: a46e8e336002b374d970a91c1eb1ce06, type: 2}
     - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Lens.OrthographicSize
       value: 4
@@ -1663,6 +1713,10 @@ PrefabInstance:
       propertyPath: kickReturnHeartDistance
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: 2896980818727633481, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: a46e8e336002b374d970a91c1eb1ce06, type: 2}
     - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Lens.OrthographicSize
       value: 4
@@ -2127,6 +2181,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: 92ff645338952c54991a70a8147a33cf, type: 3}
+    - target: {fileID: 2896980818727633481, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: a46e8e336002b374d970a91c1eb1ce06, type: 2}
     - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Lens.OrthographicSize
       value: 4
@@ -2577,6 +2635,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: 39cc1ab4199a07c488797da2ad08abbb, type: 3}
+    - target: {fileID: 2896980818727633481, guid: c094fabc31cd57f448999922174903ca, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: a46e8e336002b374d970a91c1eb1ce06, type: 2}
     - target: {fileID: 3963510646452177718, guid: c094fabc31cd57f448999922174903ca, type: 3}
       propertyPath: m_Lens.OrthographicSize
       value: 4
