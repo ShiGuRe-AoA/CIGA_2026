@@ -397,7 +397,7 @@ MonoBehaviour:
   m_Follow: {fileID: 0}
   m_Lens:
     FieldOfView: 40
-    OrthographicSize: 10
+    OrthographicSize: 4.24
     NearClipPlane: 0.1
     FarClipPlane: 5000
     Dutch: 0
@@ -656,10 +656,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveDuration: 0.5
-  moveEase: 6
   organType: 1
   pointerPivot: {fileID: 6111310624565774737}
   chargeBarImage: {fileID: 4496390737232137093}
+  chargeBarTransform: {fileID: 418014060576389388}
   maxHeartDistance: 4
   spriteConfig: {fileID: 11400000, guid: dc11efa2e2d771d4bb138e9265feca5a, type: 2}
 --- !u!114 &1952592627785566629

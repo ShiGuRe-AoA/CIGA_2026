@@ -1,3 +1,4 @@
+using DG.Tweening;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -68,7 +69,9 @@ public class PushContext
         PushableObject movingObject,
         Vector3Int dir,
         bool canPush,
-        bool bypassHeart = false)
+        bool bypassHeart = false,
+        Ease ease = Ease.InOutQuad,
+        float? duration = null)
     {
         if (movingObject == null)
             return false;
@@ -85,9 +88,7 @@ public class PushContext
             movingObject.GridPos + dir;
 
         // 检查当前移动物能否进入目标地形。
-        //
-        // 普通器官不能进入坑；
-        // 实现 IPitFiller 的箱子可以进入未填平坑。
+        // 普通器官不能进入坑；实现 IPitFiller 的箱子可以进入未填平坑。
         if (!grid.CanPushInto(
                 movingObject,
                 targetPos))
@@ -122,7 +123,7 @@ public class PushContext
                 return false;
             }
 
-            Execute(dir);
+            Execute(dir, ease, duration);
         }
 
         // 推动链执行后，目标格应当已经腾空。
@@ -135,13 +136,16 @@ public class PushContext
         if (remainingOccupier != null)
             return false;
 
-        movingObject.MoveTo(targetPos);
+        movingObject.MoveTo(targetPos, ease, duration);
 
         // movingObject 本身也可能是被蓄力踢直接推入坑中的箱子。
         ResolveSpecialCellEntry(
             movingObject,
             targetPos
         );
+
+        // 抓取跟随：如果移动方是手且有抓取物，未在推链中的抓取物一并移动
+        MoveGrabbedIfHandler(movingObject, dir, ease, duration);
 
         return true;
     }
@@ -320,8 +324,7 @@ public class PushContext
             Vector3Int targetPos =
                 grabbed.GridPos + dir;
 
-            // 当前规则：
-            // 手抓取的跟随物不能通过拖拽方式进入坑洞。
+            // 当前规则：手抓取的跟随物不能通过拖拽方式进入坑洞。
             if (!grid.IsWalkable(targetPos))
                 return false;
 
@@ -370,7 +373,8 @@ public class PushContext
     /// 随后移动抓取跟随物，
     /// 最后结算链尾进入的特殊格子。
     /// </summary>
-    public void Execute(Vector3Int dir)
+    /// <param name="duration">动画时长，null 时使用物体自身 MoveDuration</param>
+    public void Execute(Vector3Int dir, Ease ease = Ease.OutQuad, float? duration = null)
     {
         if (chain.Count == 0)
             return;
@@ -386,7 +390,7 @@ public class PushContext
              i >= 0;
              i--)
         {
-            chain[i].ApplyPush(dir);
+            chain[i].ApplyPush(dir, ease, duration);
         }
 
         foreach (var (_, grabbed)
@@ -396,7 +400,9 @@ public class PushContext
                 continue;
 
             grabbed.MoveTo(
-                grabbed.GridPos + dir
+                grabbed.GridPos + dir,
+                ease,
+                duration
             );
         }
 
@@ -440,6 +446,36 @@ public class PushContext
         // PitMechanism 自己负责显示 filledVisual。
         // 原箱子直接隐藏。
         pushable.gameObject.SetActive(false);
+    }
+
+    // ─────────── 抓取跟随 ───────────
+
+    /// <summary>
+    /// 若 obj 是手且有抓取目标，将未被推链处理过的抓取物沿同方向移动一格。
+    /// </summary>
+    private void MoveGrabbedIfHandler(PushableObject obj, Vector3Int dir, Ease ease, float? duration)
+    {
+        if (!(obj is OrganUnit hand) || hand.OrganType != OrganType.Hand || !hand.IsGrabbing)
+            return;
+
+        var grid = controller.MapGrid;
+        if (grid == null) return;
+
+        foreach (var grabbed in hand.GrabbedTargets)
+        {
+            if (grabbed == null) continue;
+
+            // 已被推链处理的不重复移动
+            if (allMoved.Contains(grabbed)) continue;
+
+            Vector3Int grabbedTarget = grabbed.GridPos + dir;
+            if (!grid.IsWalkable(grabbedTarget)) continue;
+
+            PushableObject blocker = posIndex.GetAt(grabbedTarget, grabbed);
+            if (blocker != null && !allMoved.Contains(blocker)) continue;
+
+            grabbed.MoveTo(grabbedTarget, ease, duration);
+        }
     }
 
     // ─────────── 工具 ───────────

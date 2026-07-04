@@ -18,6 +18,10 @@ public class OrganController : MonoBehaviour
     [Header("调试")]
     [SerializeField] private bool showDebugLog = true;
 
+    [Header("蓄力踢速度")]
+    [Tooltip("踢击起始最快速度（最小 Duration，秒/格）。越小越快。")]
+    [SerializeField, Min(0.001f)] private float minKickDuration = 0.015f;
+
     [Header("器官回缩逻辑")]
     [Tooltip(
         "关闭：使用原有遍历式回拉和顺序滑回逻辑。\n" +
@@ -49,7 +53,7 @@ public class OrganController : MonoBehaviour
     [SerializeField, Min(0f)] private float newPullStepDuration = 0f;
 
     [Tooltip("新版同步回缩中，相邻两轮之间的停顿时间。设置为 0 时连续逐格移动。")]
-    [SerializeField, Min(0f)] private float newPullRoundInterval = 0.02f;
+    [SerializeField, Min(0f)] private float newPullRoundInterval = 0f;
 
     // 回缩动画播放期间锁定输入，防止逻辑位置与视觉位置错位时继续操作。
     private bool isPullingBack;
@@ -382,6 +386,7 @@ public class OrganController : MonoBehaviour
     /// <param name="obj">需要移动的物体。</param>
     /// <param name="dir">单格移动方向。</param>
     /// <param name="canPush">是否允许推动目标格前方物体。</param>
+    /// <param name="thisDuration">动画时长，小于等于 0 时使用物体自身 MoveDuration。</param>
     /// <param name="bypassHeart">
     /// 推动链验证时是否忽略心距离限制，蓄力踢使用 true。
     /// </param>
@@ -390,17 +395,36 @@ public class OrganController : MonoBehaviour
         PushableObject obj,
         Vector3Int dir,
         bool canPush,
-        bool bypassHeart = false)
+        float thisDuration,
+        bool bypassHeart = false,
+        Ease ease = Ease.InOutQuad)
     {
         var context =
             new PushContext(this, posIndex);
+
+        float? duration = thisDuration > 0f ? thisDuration : null;
 
         return context.TryMoveWithPush(
             obj,
             dir,
             canPush,
-            bypassHeart
+            bypassHeart,
+            ease,
+            duration
         );
+    }
+
+    /// <summary>
+    /// 外部推动入口 — 供传动带等场景物体调用。
+    /// </summary>
+    public bool InvokeTryMoveWithPush(
+        PushableObject obj,
+        Vector3Int dir,
+        bool canPush,
+        float thisDuration)
+    {
+        if (isPullingBack) return false;
+        return TryMoveWithPush(obj, dir, canPush, thisDuration);
     }
 
     /// <summary>
@@ -421,7 +445,8 @@ public class OrganController : MonoBehaviour
         if (!TryMoveWithPush(
                 foot,
                 dir,
-                canPush: true))
+                canPush: true,
+                thisDuration: 0f))
         {
             Log(
                 $"[OrganController] {foot.name} 移动受阻。"
@@ -444,7 +469,8 @@ public class OrganController : MonoBehaviour
 
     /// <summary>
     /// 蓄力踢：
-    /// 沿指定方向逐格推飞前方物体，并忽略心距离约束。
+    /// 沿指定方向逐格推飞前方物体，忽略心距离约束。
+    /// 速度从 minKickDuration（最快）逐渐衰减到物体自身的 moveDuration。
     /// 命中后停留约 1 秒，再按照当前选定的新旧逻辑滑回。
     /// </summary>
     public bool ForceKick(
@@ -456,6 +482,7 @@ public class OrganController : MonoBehaviour
             return false;
 
         bool hitAnything = false;
+        float totalSteps = pushDistance;
 
         for (int step = 0; step < pushDistance; step++)
         {
@@ -478,10 +505,22 @@ public class OrganController : MonoBehaviour
             if (firstInLine == null)
                 break;
 
+            // 速度衰减：从 minKickDuration 线性过渡到物体自身 MoveDuration
+            float t = totalSteps > 1f
+                ? step / (totalSteps - 1f)
+                : 0f;
+
+            float stepDuration = Mathf.Lerp(
+                minKickDuration,
+                firstInLine.MoveDuration,
+                t
+            );
+
             if (!TryMoveWithPush(
                     firstInLine,
                     kickDir,
                     canPush: true,
+                    thisDuration: stepDuration,
                     bypassHeart: true))
             {
                 break;
@@ -764,7 +803,7 @@ public class OrganController : MonoBehaviour
                             Grid.CellToWorld(capturedTarget),
                             stepDuration
                         )
-                        .SetEase(Ease.OutQuad)
+                        .SetEase(Ease.Linear)
                 );
 
                 hasMovement = true;
@@ -927,7 +966,10 @@ public class OrganController : MonoBehaviour
                 if (TryMoveWithPush(
                         organ,
                         pullDir,
-                        canPush: true))
+                        canPush: true,
+                        thisDuration: 0f,
+                        bypassHeart: false,
+                        ease: Ease.Linear))
                 {
                     anyPulled = true;
                 }
@@ -1116,6 +1158,45 @@ public class OrganController : MonoBehaviour
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// 运行时切换器官类型，同步更新 OrganController 的分类列表、
+    /// 活动脚/眼球索引，以及 OrganUnit 自身的精灵显示。
+    /// Heart 类型不可被切换。
+    /// </summary>
+    public void SwitchOrganType(OrganUnit organ, OrganType newType)
+    {
+        if (organ == null || organ.OrganType == OrganType.Heart)
+            return;
+
+        OrganType oldType = organ.OrganType;
+        if (oldType == newType) return;
+
+        // 从旧分类列表移除
+        switch (oldType)
+        {
+            case OrganType.Hand: handOrgans.Remove(organ); break;
+            case OrganType.Foot: footOrgans.Remove(organ); break;
+            case OrganType.Eye:  eyeOrgans.Remove(organ);  break;
+        }
+
+        // OrganUnit 自身更新
+        organ.SwitchOrganType(newType);
+
+        // 添加到新分类列表
+        switch (newType)
+        {
+            case OrganType.Hand: handOrgans.Add(organ); break;
+            case OrganType.Foot: footOrgans.Add(organ); break;
+            case OrganType.Eye:  eyeOrgans.Add(organ);  break;
+        }
+
+        // 修正活动脚索引（若切换走了活动脚，切换到下一个可用脚）
+        if (oldType == OrganType.Foot && activeFootIndex >= footOrgans.Count)
+            activeFootIndex = footOrgans.Count > 0 ? 0 : 0;
+
+        Log($"[OrganController] {organ.name} 从 {oldType} 切换为 {newType}");
     }
 
     // ─────────── 胜利判定 ───────────

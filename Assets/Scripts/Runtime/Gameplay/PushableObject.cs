@@ -12,7 +12,7 @@ public class PushableObject : MonoBehaviour
 {
     [Header("移动")]
     [SerializeField] protected float moveDuration = 0.08f;
-    [SerializeField] protected Ease moveEase = Ease.OutQuad;
+    //[SerializeField] protected Ease moveEase = Ease.OutQuad;
 
     protected Vector3Int gridPos;
 
@@ -63,7 +63,8 @@ public class PushableObject : MonoBehaviour
     /// 更新格子坐标，并用 DOTween 平滑移动到新格子中心。
     /// 会触发 OnGridPositionChanged 事件。
     /// </summary>
-    public virtual void MoveTo(Vector3Int newPos)
+    /// <param name="duration">动画时长，null 时使用物体自身 moveDuration</param>
+    public virtual void MoveTo(Vector3Int newPos, Ease ease = Ease.OutQuad, float? duration = null)
     {
         Vector3Int oldPos = gridPos;
         gridPos = newPos;
@@ -75,16 +76,17 @@ public class PushableObject : MonoBehaviour
         {
             Vector3 target = grid.CellToWorld(newPos);
             transform.DOKill();
-            transform.DOMove(target, moveDuration).SetEase(moveEase);
+            transform.DOMove(target, duration ?? moveDuration).SetEase(ease);
         }
     }
 
     /// <summary>
     /// 被推动时调用。直接将位置沿方向位移一格。
     /// </summary>
-    public void ApplyPush(Vector3Int pushDir)
+    /// <param name="duration">动画时长，null 时使用物体自身 moveDuration</param>
+    public void ApplyPush(Vector3Int pushDir, Ease ease = Ease.OutQuad, float? duration = null)
     {
-        MoveTo(gridPos + pushDir);
+        MoveTo(gridPos + pushDir, ease, duration);
     }
 
     /// <summary>
