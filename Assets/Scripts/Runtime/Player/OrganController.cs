@@ -1336,13 +1336,22 @@ public class OrganController : MonoBehaviour
     /// 活动脚/眼球索引，以及 OrganUnit 自身的精灵显示。
     /// Heart 类型不可被切换。
     /// </summary>
-    public void SwitchOrganType(OrganUnit organ, OrganType newType)
+    public bool SwitchOrganType(OrganUnit organ, OrganType newType)
     {
         if (organ == null || organ.OrganType == OrganType.Heart)
-            return;
+            return false;
 
         OrganType oldType = organ.OrganType;
-        if (oldType == newType) return;
+        if (oldType == newType) return true;
+
+        if (!CanSwitchOrganType(organ, newType))
+        {
+            Log(
+                $"[OrganController] {organ.name} 切换为 {newType} 被拒绝：" +
+                $"数量超过持有上限。"
+            );
+            return false;
+        }
 
         // 从旧分类列表移除
         switch (oldType)
@@ -1374,6 +1383,38 @@ public class OrganController : MonoBehaviour
             RefreshActiveOrganRegistrations();
 
         Log($"[OrganController] {organ.name} 从 {oldType} 切换为 {newType}");
+        return true;
+    }
+
+    /// <summary>
+    /// 判断切换后指定器官类型数量是否仍在 MapGrid 持有数量限制内。
+    /// </summary>
+    public bool CanSwitchOrganType(OrganUnit organ, OrganType newType)
+    {
+        if (organ == null || Grid == null)
+            return false;
+
+        if (organ.OrganType == newType)
+            return true;
+
+        int newTypeCountAfterSwitch = 0;
+
+        foreach (var candidate in organs)
+        {
+            if (candidate == null)
+                continue;
+
+            OrganType candidateType =
+                candidate == organ
+                    ? newType
+                    : candidate.OrganType;
+
+            if (candidateType == newType)
+                newTypeCountAfterSwitch++;
+        }
+
+        return newTypeCountAfterSwitch <=
+               Grid.GetHeldOrganCount(newType);
     }
 
     // ─────────── 胜利判定 ───────────

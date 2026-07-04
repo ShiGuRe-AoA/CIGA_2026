@@ -47,6 +47,12 @@ public class MapGrid : MonoBehaviour
 
     [SerializeField] private bool showWireframe = true;
 
+    [Header("器官持有数量")]
+    [SerializeField, Min(0)] private int heldHeartCount = 1;
+    [SerializeField, Min(0)] private int heldFootCount = 1;
+    [SerializeField, Min(0)] private int heldHandCount = 1;
+    [SerializeField, Min(0)] private int heldEyeCount = 1;
+
     // ─────────── 基础网格数据 ───────────
 
     private CellType[,] cells;
@@ -95,6 +101,46 @@ public class MapGrid : MonoBehaviour
     /// 参数为造成阻挡的格子坐标。
     /// </summary>
     public event System.Action<Vector3Int> OnCellBlocked;
+
+    /// <summary>
+    /// 获取指定器官类型当前持有数量。
+    /// </summary>
+    public int GetHeldOrganCount(OrganType type)
+    {
+        return type switch
+        {
+            OrganType.Heart => heldHeartCount,
+            OrganType.Foot => heldFootCount,
+            OrganType.Hand => heldHandCount,
+            OrganType.Eye => heldEyeCount,
+            _ => 0
+        };
+    }
+
+    /// <summary>
+    /// 增加指定器官类型的持有数量。
+    /// </summary>
+    public void AddHeldOrganCount(OrganType type, int amount = 1)
+    {
+        if (amount <= 0)
+            return;
+
+        switch (type)
+        {
+            case OrganType.Heart:
+                heldHeartCount += amount;
+                break;
+            case OrganType.Foot:
+                heldFootCount += amount;
+                break;
+            case OrganType.Hand:
+                heldHandCount += amount;
+                break;
+            case OrganType.Eye:
+                heldEyeCount += amount;
+                break;
+        }
+    }
 
     /// <summary>
     /// 将指定器官标记为激活。
