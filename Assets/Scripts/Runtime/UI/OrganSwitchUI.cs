@@ -9,6 +9,12 @@ using UnityEngine.EventSystems;
 /// </summary>
 public class OrganSwitchSlot : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
+    /// <summary>
+    /// 当前处于打开状态的插槽。
+    /// static 确保所有 OrganSwitchSlot 实例共享同一个引用。
+    /// </summary>
+    private static OrganSwitchSlot currentOpenSlot;
+
     [Header("绑定")]
     [SerializeField] private OrganUnit targetOrgan;
 
@@ -55,15 +61,19 @@ public class OrganSwitchSlot : MonoBehaviour, IPointerClickHandler, IPointerEnte
         if (handButton != null) handButton.onClick.RemoveAllListeners();
         if (eyeButton != null) eyeButton.onClick.RemoveAllListeners();
         if (footButton != null) footButton.onClick.RemoveAllListeners();
+
+        // 当前被销毁的插槽正好是已打开插槽时，清空共享引用。
+        if (currentOpenSlot == this)
+            currentOpenSlot = null;
     }
 
     private void Update()
     {
         // 右键收起子菜单
-        if (isSubMenuOpen && Input.GetMouseButtonDown(1))
-        {
-            CloseSubMenu();
-        }
+        //if (isSubMenuOpen && Input.GetMouseButtonDown(1))
+        //{
+        //    CloseSubMenu();
+        //}
     }
 
     public void OnPointerClick(PointerEventData eventData)
@@ -73,6 +83,7 @@ public class OrganSwitchSlot : MonoBehaviour, IPointerClickHandler, IPointerEnte
             if (isSubMenuOpen)
             {
                 // 子菜单已开，左键再次点击 → 不做特殊操作（由子按钮处理）
+                CloseSubMenu();
             }
             else
             {
@@ -97,12 +108,18 @@ public class OrganSwitchSlot : MonoBehaviour, IPointerClickHandler, IPointerEnte
 
     private void OpenSubMenu()
     {
-        if (subMenuPanel == null || targetOrgan == null) return;
+        if (subMenuPanel == null || targetOrgan == null)
+            return;
+
+        // 当前存在其他已打开的插槽时，先将其关闭。
+        if (currentOpenSlot != null && currentOpenSlot != this)
+            currentOpenSlot.CloseSubMenu();
 
         subMenuPanel.SetActive(true);
         isSubMenuOpen = true;
 
-        // 高亮当前类型的按钮
+        currentOpenSlot = this;
+
         HighlightCurrentType();
     }
 
@@ -112,6 +129,9 @@ public class OrganSwitchSlot : MonoBehaviour, IPointerClickHandler, IPointerEnte
             subMenuPanel.SetActive(false);
 
         isSubMenuOpen = false;
+
+        if (currentOpenSlot == this)
+            currentOpenSlot = null;
     }
 
     private void SwitchTo(OrganType type)
