@@ -79,6 +79,8 @@ public class OrganController : MonoBehaviour
 
     public OrganUnit HeartUnit => heartUnit;
 
+    public IReadOnlyList<OrganUnit> Organs => organs;
+
     public OrganUnit ActiveFoot =>
         footOrgans.Count > 0
             ? footOrgans[activeFootIndex]
@@ -702,7 +704,7 @@ public class OrganController : MonoBehaviour
                 ? thisDuration
                 : null;
 
-        return context.TryMoveWithPush(
+        bool moved = context.TryMoveWithPush(
             obj,
             dir,
             canPush,
@@ -710,6 +712,11 @@ public class OrganController : MonoBehaviour
             ease,
             duration
         );
+
+        if (!moved)
+            AudioPlayer.PlayOneShot("SFX_PushFailed");
+
+        return moved;
     }
 
 
@@ -722,7 +729,12 @@ public class OrganController : MonoBehaviour
         bool canPush,
         float thisDuration)
     {
-        if (isPullingBack) return false;
+        if (isPullingBack)
+        {
+            AudioPlayer.PlayOneShot("SFX_PushFailed");
+            return false;
+        }
+
         return TryMoveWithPush(obj, dir, canPush, thisDuration);
     }
 
@@ -1463,7 +1475,7 @@ public class OrganController : MonoBehaviour
     /// </summary>
     public bool SwitchOrganType(OrganUnit organ, OrganType newType)
     {
-        if (organ == null || organ.OrganType == OrganType.Heart)
+        if (!CanReceiveTypeChange(organ))
             return false;
 
         OrganType oldType = organ.OrganType;
@@ -1478,30 +1490,131 @@ public class OrganController : MonoBehaviour
             return false;
         }
 
-        // 从旧分类列表移除
-        switch (oldType)
-        {
-            case OrganType.Hand: handOrgans.Remove(organ); break;
-            case OrganType.Foot: footOrgans.Remove(organ); break;
-            case OrganType.Eye:  eyeOrgans.Remove(organ);  break;
-        }
+        bool changed = ApplyOrganTypeChange(organ, oldType, newType);
+        if (changed)
+            AudioPlayer.PlayOneShot("SFX_OrganOn");
 
-        // OrganUnit 自身更新
-        organ.SwitchOrganType(newType);
+        return changed;
+    }
 
-        // 添加到新分类列表
-        switch (newType)
-        {
-            case OrganType.Hand: handOrgans.Add(organ); break;
-            case OrganType.Foot: footOrgans.Add(organ); break;
-            case OrganType.Eye:  eyeOrgans.Add(organ);  break;
-        }
+    /// <summary>
+    /// 机制用强制切换入口，忽略目标类型数量上限，但仍拒绝已清除器官。
+    /// </summary>
+    public bool ForceSwitchOrganType(OrganUnit organ, OrganType newType)
+    {
+        if (!CanReceiveTypeChange(organ))
+            return false;
 
-        // 修正活动脚索引（若切换走了活动脚，切换到下一个可用脚）
-        if (oldType == OrganType.Foot && activeFootIndex >= footOrgans.Count)
+        OrganType oldType = organ.OrganType;
+        if (oldType == newType) return true;
+
+        if (!CanSwitchOrganType(organ, newType))
+            return false;
+
+        return ApplyOrganTypeChange(organ, oldType, newType);
+    }
+
+    /// <summary>
+    /// 将指定器官从移动、切换、活动器官和位置索引中移除。
+    /// </summary>
+    public void RemoveOrganFromGameplay(OrganUnit organ)
+    {
+        if (organ == null)
+            return;
+
+        SetOrganActive(organ, false);
+        RemoveFromTypeList(organ, organ.OrganType);
+
+        organ.OnGridPositionChanged -= OnPushableMoved;
+        posIndex.Unregister(organ);
+
+        organ.ClearAsOrganVisualOnly();
+
+        if (activeFootIndex >= footOrgans.Count)
             activeFootIndex = footOrgans.Count > 0 ? 0 : 0;
 
-        // 眼数量变化 → 重新评估摄像机
+        if (activeEyeIndex >= eyeOrgans.Count)
+            activeEyeIndex = eyeOrgans.Count > 0 ? 0 : 0;
+
+        ReevaluateCamera();
+        RefreshActiveOrganRegistrations();
+    }
+
+    /// <summary>
+    /// 判断切换后指定器官类型数量是否仍在 MapGrid 持有数量限制内。
+    /// </summary>
+    public bool CanSwitchOrganType(OrganUnit organ, OrganType newType)
+    {
+        if (!CanReceiveTypeChange(organ) || Grid == null)
+            return false;
+
+        if (newType == OrganType.Heart)
+            return false;
+
+        if (organ.OrganType == newType)
+            return true;
+
+        int newTypeCountAfterSwitch =
+            CountOrganTypeAfterSwitch(organ, newType, newType);
+
+        return newTypeCountAfterSwitch <=
+               Grid.GetHeldOrganCount(newType);
+    }
+
+    private int CountOrganTypeAfterSwitch(
+        OrganUnit organToSwitch,
+        OrganType switchedType,
+        OrganType countedType)
+    {
+        int count = 0;
+
+        foreach (var candidate in organs)
+        {
+            if (candidate == null || candidate.RemovedAsOrgan)
+                continue;
+
+            OrganType candidateType =
+                candidate == organToSwitch
+                    ? switchedType
+                    : candidate.OrganType;
+
+            if (candidateType == countedType)
+                count++;
+        }
+
+        return count;
+    }
+
+    private bool CanReceiveTypeChange(OrganUnit organ)
+    {
+        if (organ == null ||
+            organ.RemovedAsOrgan ||
+            !organ.isActiveAndEnabled ||
+            organ.OrganType == OrganType.Heart)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool ApplyOrganTypeChange(
+        OrganUnit organ,
+        OrganType oldType,
+        OrganType newType)
+    {
+        RemoveFromTypeList(organ, oldType);
+
+        organ.SwitchOrganType(newType);
+
+        AddToTypeList(organ, newType);
+
+        if (oldType == OrganType.Foot &&
+            activeFootIndex >= footOrgans.Count)
+        {
+            activeFootIndex = footOrgans.Count > 0 ? 0 : 0;
+        }
+
         if (oldType == OrganType.Eye || newType == OrganType.Eye)
             ReevaluateCamera();
         else
@@ -1511,35 +1624,33 @@ public class OrganController : MonoBehaviour
         return true;
     }
 
-    /// <summary>
-    /// 判断切换后指定器官类型数量是否仍在 MapGrid 持有数量限制内。
-    /// </summary>
-    public bool CanSwitchOrganType(OrganUnit organ, OrganType newType)
+    private void RemoveFromTypeList(OrganUnit organ, OrganType type)
     {
-        if (organ == null || Grid == null)
-            return false;
-
-        if (organ.OrganType == newType)
-            return true;
-
-        int newTypeCountAfterSwitch = 0;
-
-        foreach (var candidate in organs)
+        switch (type)
         {
-            if (candidate == null)
-                continue;
-
-            OrganType candidateType =
-                candidate == organ
-                    ? newType
-                    : candidate.OrganType;
-
-            if (candidateType == newType)
-                newTypeCountAfterSwitch++;
+            case OrganType.Hand: handOrgans.Remove(organ); break;
+            case OrganType.Foot: footOrgans.Remove(organ); break;
+            case OrganType.Eye:  eyeOrgans.Remove(organ);  break;
         }
+    }
 
-        return newTypeCountAfterSwitch <=
-               Grid.GetHeldOrganCount(newType);
+    private void AddToTypeList(OrganUnit organ, OrganType type)
+    {
+        switch (type)
+        {
+            case OrganType.Hand:
+                if (!handOrgans.Contains(organ))
+                    handOrgans.Add(organ);
+                break;
+            case OrganType.Foot:
+                if (!footOrgans.Contains(organ))
+                    footOrgans.Add(organ);
+                break;
+            case OrganType.Eye:
+                if (!eyeOrgans.Contains(organ) && organ.HasCamera)
+                    eyeOrgans.Add(organ);
+                break;
+        }
     }
 
     // ─────────── 胜利判定 ───────────

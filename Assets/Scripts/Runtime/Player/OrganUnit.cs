@@ -72,9 +72,13 @@ public class OrganUnit : PushableObject
 
     private CinemachineVirtualCamera vcam;
     private Direction4 facingDirection = Direction4.Up;
+    private bool removedAsOrgan;
 
     /// <summary>器官类型</summary>
     public OrganType OrganType => organType;
+
+    /// <summary>该器官是否已被机制清除，仅保留视觉。</summary>
+    public bool RemovedAsOrgan => removedAsOrgan;
 
     /// <summary>
     /// 运行时切换器官类型，同步更新精灵、摄像机状态和蓄力条显隐。
@@ -254,6 +258,32 @@ public class OrganUnit : PushableObject
     {
         facingDirection = direction;
         UpdatePointerRotation();
+    }
+
+    /// <summary>
+    /// 将该对象从器官玩法中清除，只保留当前视觉物体。
+    /// </summary>
+    public void ClearAsOrganVisualOnly()
+    {
+        if (removedAsOrgan)
+            return;
+
+        removedAsOrgan = true;
+
+        ReleaseAllGrabbed();
+        SetCameraActive(false);
+        HeartUnit = null;
+
+        if (chargeBarImage != null)
+            chargeBarFillAmount = 0f;
+
+        Collider2D[] colliders =
+            GetComponentsInChildren<Collider2D>(true);
+
+        foreach (Collider2D collider2d in colliders)
+            collider2d.enabled = false;
+
+        enabled = false;
     }
 
     /// <summary>将移动向量转换为四方向枚举。</summary>

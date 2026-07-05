@@ -153,6 +153,9 @@ public class DoorMechanism : Mechanism
         if (!wasOpen && isOpen && openedTrigger != null)
             openedTrigger.Fire();
 
+        if (!wasOpen && isOpen)
+            AudioPlayer.PlayOneShot("SFX_DoorOpen");
+
         Log(isOpen ? "门已打开" : "门已关闭");
     }
 

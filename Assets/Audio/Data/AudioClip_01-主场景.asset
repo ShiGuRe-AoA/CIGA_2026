@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 05ba81d43a0752249a8582877152647d, type: 3}
+  m_Name: "AudioClip_01-\u4E3B\u573A\u666F"
+  m_EditorClassIdentifier: 
+  audioName: MainSceneBGM
+  clip: {fileID: 8300000, guid: 00590b6fbe3d1da40806cf042fc1933b, type: 3}
+  volume: 1
+  randomPitchRange: {x: 1, y: 1}
+  defaultLoop: 1
+  spatialBlend: 0
+  priority: 128
+  defaultFadeDuration: 0.5
+  lastSyncedClip: {fileID: 8300000, guid: 00590b6fbe3d1da40806cf042fc1933b, type: 3}

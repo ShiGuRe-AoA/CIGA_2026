@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 05ba81d43a0752249a8582877152647d, type: 3}
-  m_Name: AudioClip_Monster1
+  m_Name: "AudioClip_11-\u70B9\u51FB"
   m_EditorClassIdentifier: 
-  audioName: Monster1
-  clip: {fileID: 8300000, guid: 2f1f40778db60be4fa2a52568b176aa6, type: 3}
+  audioName: SFX_Click
+  clip: {fileID: 8300000, guid: e92d6b26be7f97c468bb2f6edd76ff74, type: 3}
   volume: 1
   randomPitchRange: {x: 1, y: 1}
-  defaultLoop: 0
+  defaultLoop: 1
   spatialBlend: 0
   priority: 128
   defaultFadeDuration: 0.5
-  lastSyncedClip: {fileID: 8300000, guid: 2f1f40778db60be4fa2a52568b176aa6, type: 3}
+  lastSyncedClip: {fileID: 8300000, guid: e92d6b26be7f97c468bb2f6edd76ff74, type: 3}

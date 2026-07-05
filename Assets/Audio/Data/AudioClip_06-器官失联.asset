@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 05ba81d43a0752249a8582877152647d, type: 3}
-  m_Name: AudioClip_Fix
+  m_Name: "AudioClip_06-\u5668\u5B98\u5931\u8054"
   m_EditorClassIdentifier: 
-  audioName: Fix
-  clip: {fileID: 8300000, guid: 34c1f2e0a5952c34b86de53149524c20, type: 3}
+  audioName: SFX_OrganLost
+  clip: {fileID: 8300000, guid: 583e6235f108f6545ab66d65d465fb41, type: 3}
   volume: 1
   randomPitchRange: {x: 1, y: 1}
-  defaultLoop: 0
+  defaultLoop: 1
   spatialBlend: 0
   priority: 128
   defaultFadeDuration: 0.5
-  lastSyncedClip: {fileID: 8300000, guid: 34c1f2e0a5952c34b86de53149524c20, type: 3}
+  lastSyncedClip: {fileID: 8300000, guid: 583e6235f108f6545ab66d65d465fb41, type: 3}

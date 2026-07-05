@@ -102,6 +102,8 @@ public class OrganSaveLoadController : MonoBehaviour
             return;
         }
 
+        AudioPlayer.PlayOneShot("SFX_Load");
+
         float? duration = instantLoad ? 0f : loadMoveDuration;
         var invalidOrgans = new List<OrganUnit>();
 

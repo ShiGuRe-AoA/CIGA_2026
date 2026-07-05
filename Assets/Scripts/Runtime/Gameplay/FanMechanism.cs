@@ -20,6 +20,9 @@ public class FanMechanism : Mechanism
     [Tooltip("关闭状态显示物。为空则不处理。")]
     [SerializeField] private GameObject inactiveVisual;
 
+    [Tooltip("风扇特效物体。风扇开启时显示，关闭时隐藏。")]
+    [SerializeField] private GameObject effectObject;
+
     [Header("节奏")]
     [SerializeField] private bool initiallyActive;
     [SerializeField, Min(0.1f)] private float interval = 1f;
@@ -161,6 +164,9 @@ public class FanMechanism : Mechanism
 
         if (inactiveVisual != null)
             inactiveVisual.SetActive(!isActive);
+
+        if (effectObject != null)
+            effectObject.SetActive(isActive);
     }
 
     private void SyncVisualRotation()

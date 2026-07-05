@@ -182,6 +182,30 @@ public class MapGrid : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 直接设置指定器官类型的持有数量。
+    /// </summary>
+    public void SetHeldOrganCount(OrganType type, int count)
+    {
+        count = Mathf.Max(0, count);
+
+        switch (type)
+        {
+            case OrganType.Heart:
+                heldHeartCount = count;
+                break;
+            case OrganType.Foot:
+                heldFootCount = count;
+                break;
+            case OrganType.Hand:
+                heldHandCount = count;
+                break;
+            case OrganType.Eye:
+                heldEyeCount = count;
+                break;
+        }
+    }
+
     private void Awake()
     {
         outlinePropertyBlock =

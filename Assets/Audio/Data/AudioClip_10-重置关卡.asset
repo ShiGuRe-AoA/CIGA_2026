@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 05ba81d43a0752249a8582877152647d, type: 3}
-  m_Name: AudioClip_amb_w2
+  m_Name: "AudioClip_10-\u91CD\u7F6E\u5173\u5361"
   m_EditorClassIdentifier: 
-  audioName: amb_w2
-  clip: {fileID: 8300000, guid: 580dbf2d53363724eacda955db55064a, type: 3}
+  audioName: SFX_Load
+  clip: {fileID: 8300000, guid: e7b98f9390b7350429fa5ad430488f75, type: 3}
   volume: 1
   randomPitchRange: {x: 1, y: 1}
-  defaultLoop: 0
+  defaultLoop: 1
   spatialBlend: 0
   priority: 128
   defaultFadeDuration: 0.5
-  lastSyncedClip: {fileID: 8300000, guid: 580dbf2d53363724eacda955db55064a, type: 3}
+  lastSyncedClip: {fileID: 8300000, guid: e7b98f9390b7350429fa5ad430488f75, type: 3}

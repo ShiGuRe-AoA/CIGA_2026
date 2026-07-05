@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 05ba81d43a0752249a8582877152647d, type: 3}
-  m_Name: AudioClip_hint_1
+  m_Name: "AudioClip_09-\u95E8\u5F00\u542F"
   m_EditorClassIdentifier: 
-  audioName: hint_1
-  clip: {fileID: 8300000, guid: 759d1625809a5294096f217da8366db1, type: 3}
+  audioName: SFX_DoorOpen
+  clip: {fileID: 8300000, guid: 85743458f09a3a44c80feaaa606c28d0, type: 3}
   volume: 1
   randomPitchRange: {x: 1, y: 1}
-  defaultLoop: 0
+  defaultLoop: 1
   spatialBlend: 0
   priority: 128
   defaultFadeDuration: 0.5
-  lastSyncedClip: {fileID: 8300000, guid: 759d1625809a5294096f217da8366db1, type: 3}
+  lastSyncedClip: {fileID: 8300000, guid: 85743458f09a3a44c80feaaa606c28d0, type: 3}
