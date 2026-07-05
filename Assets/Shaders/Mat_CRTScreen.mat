@@ -38,7 +38,7 @@ Material:
     - _DistortionRange: 0.02
     - _Intensity: 1
     - _NoiseScale: 1
-    - _NoiseSpeed: 0.2
+    - _NoiseSpeed: 1
     - _NoiseStrength: 0.001
     - _RGBMaskStrength: 0
     - _RGBSeparationEdgeInfluence: 0.75
