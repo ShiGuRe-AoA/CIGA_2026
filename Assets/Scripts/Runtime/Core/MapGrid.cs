@@ -123,6 +123,26 @@ public class MapGrid : MonoBehaviour
 
     // ─────────── 公开属性 ───────────
 
+    /// <summary>
+    /// 当前用于构建地图数据的 Tilemap。
+    /// </summary>
+    public Tilemap Tilemap => tilemap;
+
+    /// <summary>
+    /// Tilemap 所属的 Grid。
+    /// </summary>
+    public Grid LayoutGrid => grid;
+
+    /// <summary>
+    /// 地图当前包含的格子范围。
+    /// </summary>
+    public BoundsInt GridBounds => gridBounds;
+
+    /// <summary>
+    /// 地图数据是否已经初始化。
+    /// </summary>
+    public bool IsInitialized => initialized;
+
     /// <summary>地图宽度，单位为格。</summary>
     public int Width { get; private set; }
 
@@ -601,6 +621,20 @@ public class MapGrid : MonoBehaviour
             return false;
 
         return filler.CanFillPit(pit);
+    }
+
+    /// <summary>
+    /// 判断指定格子是否阻挡视线。
+    ///
+    /// 当前规则：
+    /// 基础类型为 Wall 的格子阻挡视线。
+    ///
+    /// 坑洞默认不阻挡视线。
+    /// 动态 blocker 默认也不阻挡视线。
+    /// </summary>
+    public bool BlocksVision(Vector3Int cellPos)
+    {
+        return GetCell(cellPos) == CellType.Wall;
     }
 
     // ─────────── 动态障碍 ───────────
