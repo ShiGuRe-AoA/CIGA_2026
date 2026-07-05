@@ -247,6 +247,15 @@ public class OrganUnit : PushableObject
         }
     }
 
+    /// <summary>
+    /// 直接设置器官朝向，用于存档读取等非移动场景。
+    /// </summary>
+    public void SetFacingDirection(Direction4 direction)
+    {
+        facingDirection = direction;
+        UpdatePointerRotation();
+    }
+
     /// <summary>将移动向量转换为四方向枚举。</summary>
     private static Direction4 DeltaToDirection(Vector3Int delta)
     {
