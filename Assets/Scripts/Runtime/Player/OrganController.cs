@@ -50,6 +50,16 @@ public class OrganController : MonoBehaviour
     private OrganUnit pendingOldCameraOrgan;
     private Coroutine cameraSwitchRoutine;
 
+    /// <summary>
+    /// 当前真正负责显示画面的器官。
+    /// </summary>
+    public OrganUnit ActiveCameraOrgan => activeCameraOrgan;
+
+    /// <summary>
+    /// 当前摄像机器官发生变化。
+    /// </summary>
+    public event System.Action<OrganUnit> OnActiveCameraOrganChanged;
+
     // O(1) 位置索引，替代原 List<PushableObject> 的全表扫描。
     private readonly GridPositionIndex posIndex = new GridPositionIndex();
 
@@ -399,11 +409,20 @@ public class OrganController : MonoBehaviour
     /// 切换当前视野摄像机。
     /// 顺序为：启用新摄像机物体 → 等本帧完成切换 → 关闭旧摄像机物体。
     /// </summary>
+    /// <summary>
+    /// 切换当前视野摄像机。
+    /// 顺序为：启用新摄像机物体 → 等本帧完成切换 → 关闭旧摄像机物体。
+    /// </summary>
     private void SwitchCameraTo(OrganUnit newCameraOrgan)
     {
         if (activeCameraOrgan == newCameraOrgan)
         {
             newCameraOrgan?.SetCameraActive(true);
+
+            OnActiveCameraOrganChanged?.Invoke(
+                activeCameraOrgan
+            );
+
             return;
         }
 
@@ -424,10 +443,18 @@ public class OrganController : MonoBehaviour
         }
 
         pendingOldCameraOrgan = oldCameraOrgan;
+
         newCameraOrgan?.SetCameraActive(true);
 
+        OnActiveCameraOrganChanged?.Invoke(
+            activeCameraOrgan
+        );
+
         cameraSwitchRoutine = StartCoroutine(
-            DisableOldCameraAfterSwitch(oldCameraOrgan, newCameraOrgan)
+            DisableOldCameraAfterSwitch(
+                oldCameraOrgan,
+                newCameraOrgan
+            )
         );
     }
 

@@ -33,7 +33,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Brightness: 1.3
+    - _Brightness: 1.4
     - _Distortion: 0.03
     - _DistortionRange: 0.02
     - _Intensity: 1
@@ -48,13 +48,13 @@ Material:
     - _RollingLineWidth: 12
     - _ScanLineSharpness: 3
     - _ScanLineSpeed: 0
-    - _ScanLineStrength: 0.5
+    - _ScanLineStrength: 1
     - _ScanSpeed: 1
     - _ScanStrength: 0.4
-    - _ScreenHeight: 512
-    - _ScreenScale: 1.04
+    - _ScreenHeight: 200
+    - _ScreenScale: 1.03
     - _ScreenWidth: 0
-    - _VignettePower: 0.3
+    - _VignettePower: 0.4
     - _VignetteStrength: 1
     m_Colors:
     - _RGBSeparationDirection: {r: 1, g: 0, b: 0, a: 0}
